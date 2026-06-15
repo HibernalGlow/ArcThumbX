@@ -58,18 +58,13 @@ pub fn decode_via_wic(bytes: &[u8]) -> Result<DynamicImage, Box<dyn Error>> {
     let stream = create_stream_over_bytes(bytes)?;
 
     // ── 2. Create the WIC imaging factory ─────────────────────────────
-    let factory: IWICImagingFactory = unsafe {
-        CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_INPROC_SERVER)?
-    };
+    let factory: IWICImagingFactory =
+        unsafe { CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_INPROC_SERVER)? };
 
     // ── 3. Auto-detect format and create a decoder ────────────────────
     let decoder: IWICBitmapDecoder = unsafe {
         factory
-            .CreateDecoderFromStream(
-                &stream,
-                ptr::null(),
-                WICDecodeOptions(0),
-            )
+            .CreateDecoderFromStream(&stream, ptr::null(), WICDecodeOptions(0))
             .map_err(|e| {
                 crate::alog!("  WIC: CreateDecoderFromStream failed: {e}");
                 wic_error("CreateDecoderFromStream", e)
@@ -77,11 +72,8 @@ pub fn decode_via_wic(bytes: &[u8]) -> Result<DynamicImage, Box<dyn Error>> {
     };
 
     // ── 4. Get the first (and usually only) frame ─────────────────────
-    let frame: IWICBitmapFrameDecode = unsafe {
-        decoder
-            .GetFrame(0)
-            .map_err(|e| wic_error("GetFrame", e))?
-    };
+    let frame: IWICBitmapFrameDecode =
+        unsafe { decoder.GetFrame(0).map_err(|e| wic_error("GetFrame", e))? };
 
     // ── 5. Check dimensions before decoding ────────────────────────────
     let (w, h) = unsafe { get_frame_size(&frame)? };
@@ -162,11 +154,7 @@ fn create_stream_over_bytes(bytes: &[u8]) -> Result<IStream, Box<dyn Error>> {
     // Write image data into the stream.
     // IStream::Write returns HRESULT directly; check for failure.
     unsafe {
-        let hr = stream.Write(
-            bytes.as_ptr() as *const _,
-            bytes.len() as u32,
-            None,
-        );
+        let hr = stream.Write(bytes.as_ptr() as *const _, bytes.len() as u32, None);
         hr.ok().map_err(|e| wic_error("IStream::Write", e))?;
     }
 
@@ -181,9 +169,7 @@ fn create_stream_over_bytes(bytes: &[u8]) -> Result<IStream, Box<dyn Error>> {
 }
 
 /// Query a WIC bitmap frame for its pixel dimensions.
-unsafe fn get_frame_size(
-    frame: &IWICBitmapFrameDecode,
-) -> Result<(u32, u32), Box<dyn Error>> {
+unsafe fn get_frame_size(frame: &IWICBitmapFrameDecode) -> Result<(u32, u32), Box<dyn Error>> {
     let mut w = 0u32;
     let mut h = 0u32;
     unsafe {

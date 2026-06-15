@@ -557,10 +557,7 @@ mod tests {
                 window.get_overlay_label_label(),
                 locale::EN.cb_overlay_label
             );
-            assert_eq!(
-                window.get_log_enabled_label(),
-                locale::EN.cb_log_enabled
-            );
+            assert_eq!(window.get_log_enabled_label(), locale::EN.cb_log_enabled);
             assert_eq!(window.get_btn_ok(), locale::EN.btn_ok);
             assert_eq!(window.get_btn_cancel(), locale::EN.btn_cancel);
             assert_eq!(window.get_btn_apply(), locale::EN.btn_apply);

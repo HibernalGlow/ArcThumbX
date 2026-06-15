@@ -228,8 +228,8 @@ impl Settings {
                 .unwrap_or(PRE_WIC_FORMAT_COUNT); // missing → old build
             if stored_count < current_count {
                 // New formats added since last save: enable the new bits.
-                let new_bits_mask = default_enabled_image_exts_mask()
-                    & !((1u32 << stored_count) - 1);
+                let new_bits_mask =
+                    default_enabled_image_exts_mask() & !((1u32 << stored_count) - 1);
                 out.enabled_image_exts_mask =
                     (v & default_enabled_image_exts_mask()) | new_bits_mask;
             } else {
@@ -772,7 +772,8 @@ mod tests {
         let stale: u32 = 0xFFFF_FFFF;
         key.set_value("EnabledImageExts", &stale).unwrap();
         // Future build claims more formats than we support.
-        key.set_value("FormatCount", &(SUPPORTED_IMAGE_EXTS.len() as u32 + 5)).unwrap();
+        key.set_value("FormatCount", &(SUPPORTED_IMAGE_EXTS.len() as u32 + 5))
+            .unwrap();
 
         let loaded = Settings::load_from_subkey(scratch.path());
         assert_eq!(
