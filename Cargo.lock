@@ -135,7 +135,7 @@ checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 
 [[package]]
 name = "arcthumb"
-version = "0.7.2"
+version = "0.10.1"
 dependencies = [
  "ab_glyph",
  "base64",
