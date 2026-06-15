@@ -21,6 +21,13 @@
 //!     hives (best effort) so a per-user → per-machine switch or
 //!     vice versa doesn't leave stale entries behind.
 //!     Called by the uninstaller as a pre-uninstall step.
+//!
+//! arcthumb-config.exe --log-on
+//!     Enable diagnostic logging by writing LogEnabled=1 to
+//!     HKCU\Software\ArcThumb. Restart Explorer to take effect.
+//!
+//! arcthumb-config.exe --log-off
+//!     Disable diagnostic logging by writing LogEnabled=0.
 //! ```
 //!
 //! Exit codes:
@@ -68,6 +75,14 @@ fn main() {
             println!("ArcThumb uninstalled.");
             std::process::exit(code);
         }
+        Some("--log-on") => {
+            attach_console();
+            set_log_enabled(true);
+        }
+        Some("--log-off") => {
+            attach_console();
+            set_log_enabled(false);
+        }
         _ => {
             // Surface the failure with a native MessageBox before
             // exiting. Release builds run as `windows_subsystem =
@@ -83,6 +98,32 @@ fn main() {
                 std::process::exit(5);
             }
         }
+    }
+}
+
+/// Set the LogEnabled registry value and print feedback.
+fn set_log_enabled(enabled: bool) {
+    use winreg::RegKey;
+    use winreg::enums::*;
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let (key, _) = match hkcu.create_subkey("Software\\ArcThumb") {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Error: failed to open registry key: {e}");
+            std::process::exit(1);
+        }
+    };
+    let val: u32 = if enabled { 1 } else { 0 };
+    if let Err(e) = key.set_value("LogEnabled", &val) {
+        eprintln!("Error: failed to write LogEnabled: {e}");
+        std::process::exit(1);
+    }
+    if enabled {
+        let log_path = std::env::temp_dir().join("arcthumb.log");
+        println!("Logging enabled. Restart Explorer to apply.");
+        println!("Log file: {}", log_path.display());
+    } else {
+        println!("Logging disabled. Restart Explorer to apply.");
     }
 }
 

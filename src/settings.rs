@@ -153,6 +153,11 @@ pub struct Settings {
     /// [`Self::overlay_border`]. Dropped automatically at very small
     /// thumbnail sizes where the text would be unreadable.
     pub overlay_label: bool,
+    /// Write diagnostic messages to `%TEMP%\arcthumb.log`. Off by
+    /// default — useful for troubleshooting when thumbnails don't
+    /// appear. Can also be forced on via the `ARCTHUMB_LOG`
+    /// environment variable.
+    pub log_enabled: bool,
 }
 
 impl Default for Settings {
@@ -163,6 +168,7 @@ impl Default for Settings {
             enabled_image_exts_mask: default_enabled_image_exts_mask(),
             overlay_border: false,
             overlay_label: false,
+            log_enabled: false,
         }
     }
 }
@@ -238,6 +244,9 @@ impl Settings {
         if let Ok(v) = key.get_value::<u32, _>("OverlayLabel") {
             out.overlay_label = v != 0;
         }
+        if let Ok(v) = key.get_value::<u32, _>("LogEnabled") {
+            out.log_enabled = v != 0;
+        }
         out
     }
 
@@ -300,6 +309,8 @@ impl Settings {
         key.set_value("OverlayBorder", &border)?;
         let label: u32 = if self.overlay_label { 1 } else { 0 };
         key.set_value("OverlayLabel", &label)?;
+        let log: u32 = if self.log_enabled { 1 } else { 0 };
+        key.set_value("LogEnabled", &log)?;
         Ok(())
     }
 }
@@ -724,6 +735,7 @@ mod tests {
             enabled_image_exts_mask: 0b1010_1010,
             overlay_border: true,
             overlay_label: true,
+            log_enabled: true,
         };
         original
             .save_to_subkey(scratch.path())
@@ -737,6 +749,7 @@ mod tests {
         assert_eq!(loaded.enabled_image_exts_mask, expected_mask);
         assert!(loaded.overlay_border, "border overlay round-trips");
         assert!(loaded.overlay_label, "label overlay round-trips");
+        assert!(loaded.log_enabled, "log_enabled round-trips");
     }
 
     #[test]

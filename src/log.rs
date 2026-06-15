@@ -19,9 +19,27 @@ use std::sync::OnceLock;
 use crate::limits;
 
 /// Decide once whether logging is on, cache the result.
+///
+/// Logging is enabled when any of:
+/// - This is a debug build (`cfg!(debug_assertions)`)
+/// - The environment variable `ARCTHUMB_LOG` is set
+/// - The registry key `HKCU\Software\ArcThumb\LogEnabled` is non-zero
 fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
-    *ENABLED.get_or_init(|| cfg!(debug_assertions) || std::env::var_os("ARCTHUMB_LOG").is_some())
+    *ENABLED.get_or_init(|| {
+        if cfg!(debug_assertions) || std::env::var_os("ARCTHUMB_LOG").is_some() {
+            return true;
+        }
+        // Check registry: HKCU\Software\ArcThumb\LogEnabled
+        use winreg::RegKey;
+        use winreg::enums::*;
+        if let Ok(key) = RegKey::predef(HKEY_CURRENT_USER).open_subkey("Software\\ArcThumb")
+            && let Ok(v) = key.get_value::<u32, _>("LogEnabled")
+        {
+            return v != 0;
+        }
+        false
+    })
 }
 
 /// Append `msg` (with newline) to the log file at `path`. Truncates

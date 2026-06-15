@@ -67,6 +67,7 @@ export component MainWindow inherits Window {
     in property <string> enable_preview_label;
     in property <string> overlay_border_label;
     in property <string> overlay_label_label;
+    in property <string> log_enabled_label;
     in property <string> btn_ok;
     in property <string> btn_cancel;
     in property <string> btn_apply;
@@ -91,6 +92,7 @@ export component MainWindow inherits Window {
     in-out property <bool> enable_preview;
     in-out property <bool> overlay_border;
     in-out property <bool> overlay_label;
+    in-out property <bool> log_enabled;
 
     // ---- Callbacks ----------------------------------------------
     callback ok_clicked();
@@ -236,6 +238,11 @@ export component MainWindow inherits Window {
                             vertical-stretch: 0;
                             text: root.overlay_label_label;
                             checked <=> root.overlay_label;
+                        }
+                        CheckBox {
+                            vertical-stretch: 0;
+                            text: root.log_enabled_label;
+                            checked <=> root.log_enabled;
                         }
                     }
                 }
@@ -441,6 +448,7 @@ export component MainWindowPreview inherits MainWindow {
     enable_preview_label: "プレビュー ウィンドウを有効にする (Alt+P)";
     overlay_border_label: "アーカイブを色付きの枠線で示す";
     overlay_label_label: "アーカイブにフォーマットラベルを表示 (CBZ, EPUB, ...)";
+    log_enabled_label: "診断ログを有効にする (%TEMP%\\arcthumb.log)";
     btn_ok: "OK";
     btn_cancel: "キャンセル";
     btn_apply: "適用";

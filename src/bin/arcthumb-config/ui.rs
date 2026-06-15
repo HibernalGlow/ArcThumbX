@@ -198,6 +198,7 @@ fn apply_strings(window: &MainWindow, s: &Strings) {
     window.set_enable_preview_label(SharedString::from(s.cb_enable_preview));
     window.set_overlay_border_label(SharedString::from(s.cb_overlay_border));
     window.set_overlay_label_label(SharedString::from(s.cb_overlay_label));
+    window.set_log_enabled_label(SharedString::from(s.cb_log_enabled));
     window.set_btn_ok(SharedString::from(s.btn_ok));
     window.set_btn_cancel(SharedString::from(s.btn_cancel));
     window.set_btn_apply(SharedString::from(s.btn_apply));
@@ -217,6 +218,7 @@ fn push_model(window: &MainWindow, model: &UiModel) {
     window.set_enable_preview(model.preview_enabled);
     window.set_overlay_border(model.settings.overlay_border);
     window.set_overlay_label(model.settings.overlay_label);
+    window.set_log_enabled(model.settings.log_enabled);
 }
 
 fn collect_from_ui(
@@ -236,6 +238,7 @@ fn collect_from_ui(
         enabled_image_exts_mask: image_mask,
         overlay_border: window.get_overlay_border(),
         overlay_label: window.get_overlay_label(),
+        log_enabled: window.get_log_enabled(),
     };
     (settings, ext_enabled, window.get_enable_preview())
 }
@@ -553,6 +556,10 @@ mod tests {
             assert_eq!(
                 window.get_overlay_label_label(),
                 locale::EN.cb_overlay_label
+            );
+            assert_eq!(
+                window.get_log_enabled_label(),
+                locale::EN.cb_log_enabled
             );
             assert_eq!(window.get_btn_ok(), locale::EN.btn_ok);
             assert_eq!(window.get_btn_cancel(), locale::EN.btn_cancel);
