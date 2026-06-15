@@ -18,19 +18,20 @@ name = "arcthumb-config"
 path = "src/bin/arcthumb-config/main.rs"
 
 [features]
-default = []
-# JPEG XL decoding via the pure-Rust jxl-oxide crate.
-# Disabled by default because it adds ~2.3 MB to the DLL
-# (jxl-oxide pulls in rayon, tracing, brotli-decompressor, etc.)
-# for a format that is not yet widely deployed.
-# Enable with: cargo build --release --features jxl
-jxl = ["dep:jxl-oxide"]
+default = ["wic"]
+# AVIF + JXL decoding via Windows Imaging Component (WIC).
+# Requires system-installed codecs: AV1 Image Extensions (AVIF) and/or
+# JPEG XL Extensions (JXL). Windows 11 24H2+ typically has these
+# built-in; Windows 10 needs them installed from the Microsoft Store.
+# Enabled by default. Disable with: cargo build --no-default-features
+wic = []
 
 [dependencies]
 windows-core = "0.62"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
     "Win32_Security",
     "Win32_System_Com",
     "Win32_System_Com_StructuredStorage",
@@ -69,9 +70,8 @@ image = { version = "0.25", default-features = false, features = [
 # library ourselves in the thumbnail hot path. Pure Rust, ~50 KB
 # compiled. Only used for large-JPEG sources; other formats skip
 # this decoder entirely.
-jpeg-decoder = "0.3"
-jxl-oxide = { version = "0.12", features = ["image"], optional = true }
-# Pure-Rust glyph rasteriser for the identification-label overlay
+	jpeg-decoder = "0.3"
+	# Pure-Rust glyph rasteriser for the identification-label overlay
 # baked into thumbnails. We embed a tiny A–Z/0–9 subset of Roboto
 # Bold (see assets/fonts/) so labels stay crisp at every Explorer
 # icon size. Only pulled onto the hot path when the label overlay is
@@ -124,6 +124,7 @@ windows-core = "0.62"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
     "Win32_System_Com",
     "Win32_System_LibraryLoader",
     "Win32_System_Ole",

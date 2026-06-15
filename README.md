@@ -38,7 +38,7 @@ ArcThumb is inspired by [CBXShell](https://github.com/T800G/CBXShell) and [DarkT
 
 ### Image formats inside archives
 
-JPEG, PNG, GIF, BMP, TIFF, ICO, and WebP. Each format can be individually enabled or disabled in the configuration GUI. AVIF, HEIC, and SVG are not supported yet, mostly because their reference decoders pull in heavy C dependencies.
+JPEG, PNG, GIF, BMP, TIFF, ICO, WebP, AVIF, and JXL. Each format can be individually enabled or disabled in the configuration GUI. AVIF and JXL decoding uses the Windows Imaging Component (WIC) and requires system-installed codecs — Windows 11 24H2+ includes them by default; Windows 10 needs the [AV1 Image Extensions](https://apps.microsoft.com/detail/9n26s50ln705) and/or [JPEG XL Extensions](https://apps.microsoft.com/detail/9n8s2p8p2p2p) from the Microsoft Store. Enable with `cargo build --release --features wic`. HEIC and SVG are not supported yet.
 
 ## Installing
 
@@ -225,7 +225,7 @@ The Inno Setup installer does not write any CLSID keys directly. It runs `arcthu
 
 ## Known limitations
 
-- AVIF, HEIC, SVG, and DjVu are not supported.
+- HEIC, SVG, and DjVu are not supported.
 - Animated GIF and animated WebP show only the first frame.
 - Encrypted archives are not supported.
 - Very large archives are skipped by safety limits: ZIP and 7z handle files of any practical size, TAR and RAR are capped at 2 GiB, and image decoding stops at 512 MiB to defend against decompression bombs.

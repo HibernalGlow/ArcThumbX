@@ -111,7 +111,9 @@ pub const SUPPORTED_IMAGE_EXTS: &[&str] = &[
     ".tif",
     ".webp",
     ".ico",
-    #[cfg(feature = "jxl")]
+    #[cfg(feature = "wic")]
+    ".avif",
+    #[cfg(feature = "wic")]
     ".jxl",
 ];
 

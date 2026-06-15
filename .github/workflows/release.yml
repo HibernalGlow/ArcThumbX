@@ -1,182 +1,84 @@
-# Release: on every push to main, decide whether the commit history
-# warrants a version bump (Conventional Commits), and if so:
+# Release: build portable zip on version tags.
 #
-#   1. Update Cargo.toml + Cargo.lock + installer/arcthumb.iss
-#   2. Build the release DLL and arcthumb-config.exe
-#   3. Compile the Inno Setup installer
-#   4. Commit the version bump and create a `vX.Y.Z` tag
-#   5. Publish a GitHub Release with ArcThumb-Setup.exe attached
+# Triggers on `v*` tag pushes (e.g. `git tag v0.8.0 && git push --tags`).
+# Produces a portable zip with the DLL, config GUI, and license files —
+# no installer needed. Users extract, run `arcthumb-config.exe --install`,
+# and the shell extension registers.
 #
-# Everything happens in one workflow run, so there is no need for a
-# Personal Access Token to chain workflows. The default GITHUB_TOKEN
-# (with the repo's "Read and write" workflow permissions) is enough.
-#
-# Conventional Commits mapping:
-#   feat!:        / BREAKING CHANGE: in body  -> major bump
-#   feat:                                     -> minor bump
-#   fix: / chore: / docs: / refactor: / etc.  -> patch bump
-#   anything without a recognised prefix      -> no bump (workflow exits)
-#
-# The build step runs BEFORE the commit/tag push, so if the build
-# fails the repository is left untouched — no half-released versions.
+# The zip is uploaded as a GitHub Release asset so it shows up on the
+# Releases page automatically.
 
 name: Release
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   release:
-    name: Bump, build, and publish
+    name: Build and release portable zip
     runs-on: windows-latest
-    # Don't loop on our own bump commits.
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
-      - name: Checkout (full history)
+      - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Compute next version
-        id: version
-        uses: paulhatch/semantic-version@v6.0.2
-        with:
-          tag_prefix: "v"
-          # Conventional Commits — `feat!:` or `feat(scope)!:` etc.
-          major_pattern: "/^[a-z]+(\\([^)]+\\))?!:/"
-          major_regexp_flags: "m"
-          minor_pattern: "/^feat(\\([^)]+\\))?:/"
-          minor_regexp_flags: "m"
-          version_format: "${major}.${minor}.${patch}"
-          bump_each_commit: false
-          # Pick up "BREAKING CHANGE:" footers in commit bodies.
-          search_commit_body: true
-
-      - name: Show computed version
-        shell: bash
-        run: |
-          echo "version       = ${{ steps.version.outputs.version }}"
-          echo "version_type  = ${{ steps.version.outputs.version_type }}"
-          echo "increment     = ${{ steps.version.outputs.increment }}"
-
-      - name: Skip if no version change
-        id: gate
-        shell: bash
-        run: |
-          if [ "${{ steps.version.outputs.version_type }}" = "none" ]; then
-            echo "No bumpable commits since the last tag — skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Install Rust toolchain
-        if: steps.gate.outputs.skip == 'false'
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
       - name: Cache cargo
-        if: steps.gate.outputs.skip == 'false'
         uses: Swatinem/rust-cache@v2
 
-      - name: Update Cargo.toml version
-        if: steps.gate.outputs.skip == 'false'
-        shell: bash
-        run: |
-          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.version }}"/' Cargo.toml
+      - name: Format check
+        run: cargo fmt --all -- --check
 
-      - name: Update Cargo.lock
-        if: steps.gate.outputs.skip == 'false'
-        run: cargo update -p arcthumb
+      - name: Clippy
+        run: cargo clippy --all-targets --features wic -- -D warnings
 
-      - name: Update installer version
-        if: steps.gate.outputs.skip == 'false'
-        shell: bash
-        run: |
-          sed -i 's/#define MyAppVersion    ".*"/#define MyAppVersion    "${{ steps.version.outputs.version }}"/' installer/arcthumb.iss
+      - name: Test
+        run: cargo test
 
-      - name: Build release binaries
-        if: steps.gate.outputs.skip == 'false'
-        run: cargo build --release
+      - name: Test (wic feature)
+        run: cargo test --features wic
 
-      - name: Build Inno Setup installer
-        if: steps.gate.outputs.skip == 'false'
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.8
-        with:
-          path: installer/arcthumb.iss
-          options: /O+
+      - name: Build (release + wic)
+        run: cargo build --release --features wic
 
-      - name: Verify installer exists
-        if: steps.gate.outputs.skip == 'false'
+      - name: Package portable zip
         shell: pwsh
         run: |
-          if (-Not (Test-Path "target/installer/ArcThumb-Setup.exe")) {
-            Write-Error "Installer not found at target/installer/ArcThumb-Setup.exe"
-            exit 1
-          }
-          Get-Item "target/installer/ArcThumb-Setup.exe" | Format-List Name, Length
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $zipName = "ArcThumb-$version-portable-x64.zip"
+          $staging = "target\portable-staging"
 
-      - name: Commit version bump and tag
-        if: steps.gate.outputs.skip == 'false'
-        shell: bash
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Cargo.toml Cargo.lock installer/arcthumb.iss
-          # If sed didn't change anything (e.g. Cargo.toml was already at the
-          # target version, common on the very first release), there is
-          # nothing to commit — but we still want to tag the current HEAD
-          # so the release/asset upload steps can run.
-          if git diff --cached --quiet; then
-            echo "No file changes to commit; tagging current HEAD as v${{ steps.version.outputs.version }}."
-          else
-            git commit -m "chore: bump version to v${{ steps.version.outputs.version }} [skip ci]"
-            git push origin main
-          fi
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
+          New-Item -ItemType Directory -Force -Path $staging | Out-Null
+
+          # Core binaries
+          Copy-Item "target\release\arcthumb.dll"        $staging
+          Copy-Item "target\release\arcthumb-config.exe"  $staging
+
+          # License files
+          Copy-Item "LICENSE-MIT"     $staging
+          Copy-Item "LICENSE-APACHE"  $staging
+
+          # Create zip
+          Compress-Archive -Path "$staging\*" -DestinationPath "target\$zipName" -Force
+
+          Write-Host "Created: target\$zipName"
+          Write-Host "Size: $((Get-Item "target\$zipName").Length / 1KB) KB"
+
+          # Export for upload step
+          "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
 
       - name: Create GitHub Release
-        if: steps.gate.outputs.skip == 'false'
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ steps.version.outputs.version }}"
-          files: target/installer/ArcThumb-Setup.exe
+          files: target/${{ env.ZIP_NAME }}
           generate_release_notes: true
           draft: false
-          prerelease: false
-
-      # Submit a manifest update PR to microsoft/winget-pkgs so the new
-      # version is reachable via `winget install CitrusSoda.ArcThumb`.
-      # Requires repo secret WINGET_TOKEN (a Classic PAT with `public_repo`
-      # scope). If the secret is missing, the step warns and skips without
-      # failing the release.
-      - name: Submit to winget-pkgs
-        if: steps.gate.outputs.skip == 'false'
-        shell: pwsh
-        env:
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-        run: |
-          if (-not $env:WINGET_TOKEN) {
-            Write-Warning "WINGET_TOKEN secret not set; skipping winget submission."
-            exit 0
-          }
-          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          # Give GitHub Releases CDN a moment to propagate the new asset URL
-          # before wingetcreate tries to download it to compute SHA256.
-          Start-Sleep -Seconds 15
-          # The base manifest has two installer entries (Scope: user with
-          # /CURRENTUSER, Scope: machine with /ALLUSERS) that point at the
-          # same exe. Both match on architecture + installer type, so we
-          # have to disambiguate them with the wingetcreate URL override
-          # syntax `<url>|<architecture>|<scope>`. Without the scope
-          # override wingetcreate fails with "Multiple matches found".
-          # Adding a third installer entry later means adding a third
-          # --urls argument with its own scope override.
-          $url = "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/ArcThumb-Setup.exe"
-          .\wingetcreate.exe update CitrusSoda.ArcThumb `
-            --version ${{ steps.version.outputs.version }} `
-            --display-version ${{ steps.version.outputs.version }} `
-            --urls "$url|x64|user" "$url|x64|machine" `
-            --token $env:WINGET_TOKEN `
-            --submit
+          prerelease: ${{ contains(github.ref_name, '-') }}

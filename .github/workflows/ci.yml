@@ -44,11 +44,12 @@ jobs:
       - name: Test (debug)
         run: cargo test
 
-      # The `jxl` feature is off by default, so the steps above never
-      # compile decode.rs's jxl-oxide path. Build and test it explicitly
-      # here, otherwise a breaking jxl-oxide bump passes CI unnoticed.
-      - name: Test (jxl feature)
-        run: cargo test --features jxl
+      # The `wic` feature is off by default, so the steps above never
+      # compile decode.rs's WIC path. Build and test it explicitly
+      # here, otherwise a breaking windows-rs WIC API change passes CI
+      # unnoticed.
+      - name: Test (wic feature)
+        run: cargo test --features wic
 
       - name: Build (release)
         run: cargo build --release

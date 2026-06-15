@@ -19,6 +19,8 @@ mod preview;
 pub mod registry;
 pub mod settings;
 mod stream;
+#[cfg(feature = "wic")]
+mod wic;
 
 use std::panic::catch_unwind;
 

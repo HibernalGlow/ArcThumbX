@@ -4,24 +4,18 @@
 //! `image` crate's `ImageReader`, which auto-detects format from
 //! magic bytes and enforces pre-decode dimension/allocation limits.
 //!
-//! **JXL** (JPEG XL) is gated behind the `jxl` Cargo feature. When
-//! enabled, decoding uses `jxl-oxide` — a pure-Rust JPEG XL decoder
-//! — via its `image` integration. Disabled by default because it
-//! adds ~2.3 MB to the DLL for a format that is not yet widely
-//! deployed. Build with `cargo build --release --features jxl` to
-//! enable.
-//!
-//! **AVIF / HEIC** are intentionally not supported. Both require C
-//! library dependencies (`libavif`, `libheif`) that conflict with
-//! the "cargo build alone, no system libraries" philosophy of this
-//! project. They may return in a later phase if pure-Rust decoders
-//! mature enough for production use.
+//! **AVIF and JXL** (JPEG XL) are gated behind the `wic` Cargo feature.
+//! When enabled, decoding uses the Windows Imaging Component (WIC) —
+//! a native COM framework that delegates to system-installed codecs.
+//! Windows 11 24H2+ ships AVIF and JXL codecs built-in; Windows 10
+//! requires installing them from the Microsoft Store. Build with
+//! `cargo build --release --features wic` to enable.
 
 use std::error::Error;
 use std::io::Cursor;
 
-#[cfg(feature = "jxl")]
-use image::ImageDecoder;
+#[cfg(feature = "wic")]
+use crate::wic;
 use image::{DynamicImage, ImageReader, Limits};
 
 use crate::limits;
@@ -36,11 +30,11 @@ use crate::limits;
 /// [`decode_for_thumbnail`], which skips a large fraction of the
 /// JPEG decode cost by asking libjpeg for a pre-scaled output.
 pub fn decode_with_limits(name: &str, bytes: &[u8]) -> Result<DynamicImage, Box<dyn Error>> {
-    #[cfg(feature = "jxl")]
-    if name.to_ascii_lowercase().ends_with(".jxl") {
-        return decode_jxl(bytes);
+    #[cfg(feature = "wic")]
+    if wic::is_wic_format(name) {
+        return wic::decode_via_wic(bytes);
     }
-    let _ = name; // only used by the `jxl` branch
+    let _ = name; // only used by the `wic` branch
     decode_via_image_crate(bytes)
 }
 
@@ -61,9 +55,9 @@ pub fn decode_for_thumbnail(
     bytes: &[u8],
     target_px: u32,
 ) -> Result<DynamicImage, Box<dyn Error>> {
-    #[cfg(feature = "jxl")]
-    if name.to_ascii_lowercase().ends_with(".jxl") {
-        return decode_jxl(bytes);
+    #[cfg(feature = "wic")]
+    if wic::is_wic_format(name) {
+        return wic::decode_via_wic(bytes);
     }
     let _ = name;
 
@@ -181,26 +175,6 @@ fn decode_via_image_crate(bytes: &[u8]) -> Result<DynamicImage, Box<dyn Error>> 
     let mut reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
     reader.limits(make_limits());
     Ok(reader.decode()?)
-}
-
-#[cfg(feature = "jxl")]
-fn decode_jxl(bytes: &[u8]) -> Result<DynamicImage, Box<dyn Error>> {
-    use jxl_oxide::integration::JxlDecoder;
-
-    let decoder = JxlDecoder::new(Cursor::new(bytes))?;
-    let (w, h) = decoder.dimensions();
-
-    // Pre-decode size guard — `image::Limits` isn't honoured by every
-    // third-party decoder, so we check manually before committing.
-    if w > limits::MAX_IMAGE_DIMENSION || h > limits::MAX_IMAGE_DIMENSION {
-        return Err(format!("JXL dimensions too large: {w}x{h}").into());
-    }
-    let pixel_bytes = (w as u64).saturating_mul(h as u64).saturating_mul(4);
-    if pixel_bytes > limits::MAX_IMAGE_ALLOC {
-        return Err(format!("JXL would allocate {pixel_bytes} bytes, exceeds limit").into());
-    }
-
-    Ok(DynamicImage::from_decoder(decoder)?)
 }
 
 #[cfg(test)]
