@@ -24,6 +24,11 @@ use std::sync::OnceLock;
 use winreg::RegKey;
 use winreg::enums::*;
 
+/// Number of image formats before WIC (AVIF/JXL) was added.
+/// Used as the assumed format count when `FormatCount` is missing
+/// from the registry (i.e. settings were saved by an older build).
+const PRE_WIC_FORMAT_COUNT: u32 = 9;
+
 /// How to order image files within an archive before picking the
 /// "first" one for the thumbnail.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -203,10 +208,29 @@ impl Settings {
             };
         }
         if let Ok(v) = key.get_value::<u32, _>("EnabledImageExts") {
-            // Mask unused high bits so a stale value from a build
-            // with more supported formats can't light up phantom
-            // entries after a downgrade.
-            out.enabled_image_exts_mask = v & default_enabled_image_exts_mask();
+            // When upgrading to a build with more supported formats,
+            // auto-enable the new format bits so AVIF / JXL work
+            // without the user opening the config GUI.  We detect
+            // an upgrade by comparing the stored FormatCount (written
+            // on every save) with the current format count.  When the
+            // counts match (same build), the user's choices are
+            // preserved exactly.  High bits from a downgrade are
+            // stripped.
+            let current_count = SUPPORTED_IMAGE_EXTS.len() as u32;
+            let stored_count = key
+                .get_value::<u32, _>("FormatCount")
+                .unwrap_or(PRE_WIC_FORMAT_COUNT); // missing → old build
+            if stored_count < current_count {
+                // New formats added since last save: enable the new bits.
+                let new_bits_mask = default_enabled_image_exts_mask()
+                    & !((1u32 << stored_count) - 1);
+                out.enabled_image_exts_mask =
+                    (v & default_enabled_image_exts_mask()) | new_bits_mask;
+            } else {
+                // Same build or downgrade: preserve user's choices,
+                // strip any high bits beyond our range.
+                out.enabled_image_exts_mask = v & default_enabled_image_exts_mask();
+            }
         }
         if let Ok(v) = key.get_value::<u32, _>("OverlayBorder") {
             out.overlay_border = v != 0;
@@ -271,6 +295,7 @@ impl Settings {
         key.set_value("CoverMode", &self.cover_mode.as_registry_value())?;
         let mask = self.enabled_image_exts_mask & default_enabled_image_exts_mask();
         key.set_value("EnabledImageExts", &mask)?;
+        key.set_value("FormatCount", &(SUPPORTED_IMAGE_EXTS.len() as u32))?;
         let border: u32 = if self.overlay_border { 1 } else { 0 };
         key.set_value("OverlayBorder", &border)?;
         let label: u32 = if self.overlay_label { 1 } else { 0 };
@@ -725,14 +750,16 @@ mod tests {
 
     #[test]
     fn settings_load_masks_out_of_range_high_bits() {
-        // Simulate a future build that set bits beyond our supported
-        // set. Those must be silently cleared on load so downgrades
-        // don't enable phantom extensions.
+        // Simulate a future build with more formats that wrote a
+        // FormatCount beyond our range.  High bits must be silently
+        // cleared on load so downgrades don't enable phantom formats.
         let scratch = ScratchSubkey::new("highbits");
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         let (key, _) = hkcu.create_subkey(scratch.path()).unwrap();
         let stale: u32 = 0xFFFF_FFFF;
         key.set_value("EnabledImageExts", &stale).unwrap();
+        // Future build claims more formats than we support.
+        key.set_value("FormatCount", &(SUPPORTED_IMAGE_EXTS.len() as u32 + 5)).unwrap();
 
         let loaded = Settings::load_from_subkey(scratch.path());
         assert_eq!(

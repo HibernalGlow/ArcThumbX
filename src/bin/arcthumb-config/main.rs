@@ -50,8 +50,24 @@ mod update_check;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(|s| s.as_str()) {
-        Some("--install") => std::process::exit(cli::run_install(&cli::RealCliOps)),
-        Some("--uninstall") => std::process::exit(cli::run_uninstall(&cli::RealCliOps)),
+        Some("--install") => {
+            attach_console();
+            let code = cli::run_install(&cli::RealCliOps);
+            match code {
+                cli::EXIT_OK => println!("ArcThumb installed successfully."),
+                cli::EXIT_DLL_NOT_FOUND => eprintln!("Error: arcthumb.dll not found."),
+                cli::EXIT_CLSID_FAILED => eprintln!("Error: CLSID registration failed."),
+                cli::EXIT_EXTENSION_FAILED => eprintln!("Error: extension binding failed."),
+                _ => eprintln!("Error: unknown failure (exit code {code})."),
+            }
+            std::process::exit(code);
+        }
+        Some("--uninstall") => {
+            attach_console();
+            let code = cli::run_uninstall(&cli::RealCliOps);
+            println!("ArcThumb uninstalled.");
+            std::process::exit(code);
+        }
         _ => {
             // Surface the failure with a native MessageBox before
             // exiting. Release builds run as `windows_subsystem =
@@ -67,5 +83,21 @@ fn main() {
                 std::process::exit(5);
             }
         }
+    }
+}
+
+/// Attach to the parent process's console so `println!` / `eprintln!`
+/// are visible when running from PowerShell or cmd.exe. No-op when
+/// the process already has a console (debug builds) or when there is
+/// no parent console to attach to (double-click launch).
+fn attach_console() {
+    #[cfg(not(debug_assertions))]
+    unsafe {
+        // AttachConsole(ATTACH_PARENT_PROCESS) — raw FFI to avoid
+        // pulling Win32_System_Console into the DLL's windows features.
+        unsafe extern "system" {
+            fn AttachConsole(dw_process_id: u32) -> i32;
+        }
+        let _ = AttachConsole(u32::MAX);
     }
 }

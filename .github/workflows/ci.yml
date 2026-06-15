@@ -44,12 +44,11 @@ jobs:
       - name: Test (debug)
         run: cargo test
 
-      # The `wic` feature is off by default, so the steps above never
-      # compile decode.rs's WIC path. Build and test it explicitly
-      # here, otherwise a breaking windows-rs WIC API change passes CI
-      # unnoticed.
-      - name: Test (wic feature)
-        run: cargo test --features wic
+      # The `wic` feature is on by default, so the steps above compile
+      # and test the WIC path. Verify the no-wic build explicitly so a
+      # regression in the cfg-gated fallback doesn't slip through CI.
+      - name: Test (no default features)
+        run: cargo test --no-default-features
 
       - name: Build (release)
         run: cargo build --release

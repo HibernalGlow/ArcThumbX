@@ -48,7 +48,13 @@ fn try_generate_thumbnail(
     let file_ext = stream_file_ext(&stream);
 
     let reader = ComStreamReader::new(stream);
-    let extracted = archive::read_first_image_with_kind(reader, settings)?;
+    let extracted = match archive::read_first_image_with_kind(reader, settings) {
+        Ok(e) => e,
+        Err(e) => {
+            alog!("  ERROR picking image: {e}");
+            return Err(e);
+        }
+    };
     alog!(
         "  picked: {} ({} bytes, ext={:?})",
         extracted.name,
@@ -63,7 +69,13 @@ fn try_generate_thumbnail(
     // multi-megapixel comic page is delivered at roughly twice the
     // target size instead of at full resolution, cutting the decode
     // cost by up to ~16×.
-    let img = decode::decode_for_thumbnail(&extracted.name, &extracted.bytes, cx)?;
+    let img = match decode::decode_for_thumbnail(&extracted.name, &extracted.bytes, cx) {
+        Ok(img) => img,
+        Err(e) => {
+            alog!("  ERROR decoding '{}': {e}", extracted.name);
+            return Err(e);
+        }
+    };
     alog!("  decoded: {}x{}", img.width(), img.height());
 
     // Preserve aspect ratio, fit inside cx × cx. `Triangle` (bilinear)

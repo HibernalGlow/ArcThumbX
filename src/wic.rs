@@ -53,6 +53,7 @@ pub fn is_wic_format(name: &str) -> bool {
 /// - Dimensions exceeding [`limits::MAX_IMAGE_DIMENSION`] or pixel
 ///   buffer exceeding [`limits::MAX_IMAGE_ALLOC`] cause an error.
 pub fn decode_via_wic(bytes: &[u8]) -> Result<DynamicImage, Box<dyn Error>> {
+    crate::alog!("  WIC: decoding {} bytes", bytes.len());
     // ── 1. Wrap bytes in an IStream ────────────────────────────────────
     let stream = create_stream_over_bytes(bytes)?;
 
@@ -69,7 +70,10 @@ pub fn decode_via_wic(bytes: &[u8]) -> Result<DynamicImage, Box<dyn Error>> {
                 ptr::null(),
                 WICDecodeOptions(0),
             )
-            .map_err(|e| wic_error("CreateDecoderFromStream", e))?
+            .map_err(|e| {
+                crate::alog!("  WIC: CreateDecoderFromStream failed: {e}");
+                wic_error("CreateDecoderFromStream", e)
+            })?
     };
 
     // ── 4. Get the first (and usually only) frame ─────────────────────
