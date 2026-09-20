@@ -239,6 +239,11 @@ fn collect_from_ui(
         overlay_border: window.get_overlay_border(),
         overlay_label: window.get_overlay_label(),
         log_enabled: window.get_log_enabled(),
+        // `enabled_archive_exts_mask` deliberately comes from the default:
+        // on Windows the per-extension checkboxes drive the `ShellEx`
+        // registry bindings (see `apply::compute_apply_plan`), so the mask
+        // stays all-on and only the macOS backend uses it as a filter.
+        ..Settings::default()
     };
     (settings, ext_enabled, window.get_enable_preview())
 }
