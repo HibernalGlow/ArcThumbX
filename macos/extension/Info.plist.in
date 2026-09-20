@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>ArcThumb Thumbnails</string>
+	<key>CFBundleExecutable</key>
+	<string>ArcThumbThumbnail</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ArcThumbThumbnail</string>
+	<key>CFBundlePackageType</key>
+	<string>XPC!</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>MIT OR Apache-2.0</string>
+	<key>NSPrincipalClass</key>
+	<string>ThumbnailProvider</string>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.quicklook.thumbnail</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>ThumbnailProvider</string>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<!-- Quick Look matches on UTI, never on the filename extension,
+			     so every type we can produce a cover for has to be named
+			     here — including the ones declared further down. -->
+			<key>QLSupportedContentTypes</key>
+			<array>
+				<string>com.citrussoda.arcthumb.cbz</string>
+				<string>com.citrussoda.arcthumb.cbr</string>
+				<string>com.citrussoda.arcthumb.cb7</string>
+				<string>com.citrussoda.arcthumb.cbt</string>
+				<string>public.zip-archive</string>
+				<string>public.tar-archive</string>
+				<string>com.rarlab.rar-archive</string>
+				<string>org.7-zip.7-zip-archive</string>
+				<string>org.idpf.epub-container</string>
+				<string>com.citrussoda.arcthumb.fb2</string>
+				<string>com.citrussoda.arcthumb.mobi</string>
+				<string>com.citrussoda.arcthumb.azw</string>
+				<string>com.citrussoda.arcthumb.azw3</string>
+			</array>
+		</dict>
+	</dict>
+
+	<!-- Types nobody owns. `.cbz`, `.cbr`, `.cb7` and `.cbt` resolve to a
+	     throwaway `dyn.ah62…` identifier on a stock macOS, i.e. they are
+	     undeclared, so we are free to give them a real UTI. Each conforms
+	     to its container's type, which is what lets the core's ZIP/7z/RAR
+	     readers be reused through the comic extension. -->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.cbz</string>
+			<key>UTTypeDescription</key>
+			<string>Comic Book ZIP archive</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.zip-archive</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>cbz</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.cbr</string>
+			<key>UTTypeDescription</key>
+			<string>Comic Book RAR archive</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>com.rarlab.rar-archive</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>cbr</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.cb7</string>
+			<key>UTTypeDescription</key>
+			<string>Comic Book 7-Zip archive</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>org.7-zip.7-zip-archive</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>cb7</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.cbt</string>
+			<key>UTTypeDescription</key>
+			<string>Comic Book TAR archive</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.tar-archive</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>cbt</string></array></dict>
+		</dict>
+	</array>
+
+	<!-- Types somebody else owns, or that a stock macOS may not know at
+	     all (`org.7-zip.7-zip-archive` comes from whichever archiver the
+	     user installed). Importing references an identifier by name without
+	     claiming the extension globally, so we neither shadow Archive
+	     Utility nor fail to load when its declaring app is missing. The
+	     ebook types are imported for the same reason: Books may already
+	     own `.mobi`, and a thumbnailer has no business re-cutting that. -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.rarlab.rar-archive</string>
+			<key>UTTypeDescription</key>
+			<string>RAR archive</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.data</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>rar</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.7-zip.7-zip-archive</string>
+			<key>UTTypeDescription</key>
+			<string>7-Zip archive</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.data</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>7z</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.idpf.epub-container</string>
+			<key>UTTypeDescription</key>
+			<string>EPUB publication</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.zip-archive</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>epub</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.fb2</string>
+			<key>UTTypeDescription</key>
+			<string>FictionBook 2 document</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.xml</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>fb2</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.mobi</string>
+			<key>UTTypeDescription</key>
+			<string>Amazon MOBI ebook</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.data</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>mobi</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.azw</string>
+			<key>UTTypeDescription</key>
+			<string>Amazon AZW ebook</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.data</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>azw</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.citrussoda.arcthumb.azw3</string>
+			<key>UTTypeDescription</key>
+			<string>Amazon KF8 ebook</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.data</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>azw3</string></array></dict>
+		</dict>
+	</array>
+</dict>
+</plist>

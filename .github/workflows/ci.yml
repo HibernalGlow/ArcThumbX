@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   test:
-    name: Build and test
+    name: Windows (core + shell extension)
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -52,3 +52,54 @@ jobs:
 
       - name: Build (release)
         run: cargo build --release
+
+  macos:
+    name: macOS (core + Quick Look extension)
+    runs-on: macos-latest
+    env:
+      # The bundled AVIF decoder vendors libavif and dav1d as C sources.
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # cmake builds libavif, meson+ninja build the vendored dav1d.
+      - name: Install C build tools
+        run: brew install cmake meson ninja
+
+      - name: Format check
+        run: |
+          cargo fmt --all -- --check
+          cargo fmt --manifest-path macos/arcthumb-ffi/Cargo.toml --all -- --check
+
+      # The default features (`wic`, `config-gui`) are Windows-only backends;
+      # on macOS they resolve to nothing, so clippy runs with them on to
+      # catch the same set of targets the Windows job does.
+      - name: Clippy (core)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Clippy (FFI shim)
+        run: cargo clippy --manifest-path macos/arcthumb-ffi/Cargo.toml --all-targets -- -D warnings
+
+      - name: Test (core)
+        run: cargo test
+
+      - name: Test (FFI shim, end-to-end through the C ABI)
+        run: cargo test --manifest-path macos/arcthumb-ffi/Cargo.toml
+
+      - name: Build the Quick Look extension
+        run: ./macos/build-appex.sh --release
+
+      - name: Extension bundle layout
+        run: |
+          test -x macos/build/ArcThumb.app/Contents/PlugIns/ArcThumbThumbnail.appex/Contents/MacOS/ArcThumbThumbnail
+          plutil -lint macos/build/ArcThumb.app/Contents/PlugIns/ArcThumbThumbnail.appex/Contents/Info.plist
+          codesign --verify --verbose=2 macos/build/ArcThumb.app

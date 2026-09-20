@@ -1,1 +1,5 @@
 /target
+
+# macOS build products: the Rust shim target dir and the assembled bundles.
+/macos/arcthumb-ffi/target/
+/macos/build/

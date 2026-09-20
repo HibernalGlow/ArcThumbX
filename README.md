@@ -4,9 +4,9 @@
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 [![Version](https://img.shields.io/github/v/release/citrussoda-com/ArcThumb?label=version&color=green)](https://github.com/citrussoda-com/ArcThumb/releases)
-[![Platform: Windows 10/11](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](#)
+[![Platform: Windows 10/11 · macOS 11+](https://img.shields.io/badge/platform-Windows%2010%2F11%20%C2%B7%20macOS%2011%2B-lightgrey.svg)](#)
 
-A Windows Explorer shell extension that shows cover thumbnails and preview-pane previews for comic book archives (ZIP, CBZ, RAR, CBR, 7Z, CB7, CBT) and ebooks (EPUB, FB2, MOBI, AZW, AZW3).
+Archive cover thumbnails inside the file manager. On Windows it is an Explorer shell extension (`IThumbnailProvider` + a preview pane); on macOS it is a Quick Look thumbnail extension for Finder. Both are thin backends on one shared Rust core, and both read comic book archives (ZIP, CBZ, RAR, CBR, 7Z, CB7, CBT) and ebooks (EPUB, FB2, MOBI, AZW, AZW3).
 
 ArcThumb is inspired by [CBXShell](https://github.com/T800G/CBXShell) and [DarkThumbs](https://github.com/fire-eggs/DarkThumbs), rewritten in Rust with WebP support and Windows 10/11 as the baseline.
 
@@ -18,7 +18,7 @@ ArcThumb is inspired by [CBXShell](https://github.com/T800G/CBXShell) and [DarkT
 - For ebooks, parses the format-specific metadata so the right cover is picked instead of an arbitrary embedded image. EPUB uses the OPF manifest, FB2 uses the `<coverpage>` reference, and MOBI/AZW/AZW3 use the EXTH 201 CoverOffset record.
 - Implements `IPreviewHandler` so the same cover shows up in Explorer's preview pane (`Alt+P`), rescaled when the splitter moves.
 - Can bake an identification overlay into archive thumbnails — a format-coloured border and a corner label (`CBZ`, `EPUB`, …) — so archives stand out from plain images. Off by default.
-- Provides a small configuration GUI (`arcthumb-config.exe`) for toggling extensions, sort order, cover-name preference, the preview pane, the identification overlay, and the UI language.
+- Provides a small configuration GUI (`arcthumb-config.exe`) for toggling extensions, sort order, cover-name preference, the preview pane, the identification overlay, and the UI language. The macOS extension reads the same options from `UserDefaults`, and JPEG/PNG/WebP/GIF/TIFF/BMP/ICO plus AVIF and JXL are decoded by the shared Rust core on both platforms.
 - Installs per-user under `%LOCALAPPDATA%\Programs\ArcThumb` by default with no admin rights. Run the installer elevated to install machine-wide under `%ProgramFiles%\ArcThumb` instead — required when Explorer runs at high integrity, such as Windows Sandbox.
 - Wraps every COM entry point in `catch_unwind`, so a panic in the decoder cannot crash Explorer or `prevhost.exe`.
 
@@ -38,17 +38,40 @@ ArcThumb is inspired by [CBXShell](https://github.com/T800G/CBXShell) and [DarkT
 
 ### Image formats inside archives
 
-JPEG, PNG, GIF, BMP, TIFF, ICO, WebP, AVIF, and JXL. Each format can be individually enabled or disabled in the configuration GUI. AVIF and JXL decoding uses the Windows Imaging Component (WIC) and requires system-installed codecs — Windows 11 24H2+ includes them by default; Windows 10 needs the [AV1 Image Extensions](https://apps.microsoft.com/detail/9n26s50ln705) and/or [JPEG XL Extensions](https://apps.microsoft.com/detail/9n8s2p8p2p2p) from the Microsoft Store. Enable with `cargo build --release --features wic`. HEIC and SVG are not supported yet.
+JPEG, PNG, GIF, BMP, TIFF, ICO, WebP, AVIF, and JXL, each individually
+enableable in the configuration GUI. AVIF and JXL do **not** depend on
+whatever the OS happens to support: on Windows they decode through the
+Windows Imaging Component (system codecs — Windows 11 24H2+ includes them,
+Windows 10 needs the [AV1 Image Extensions](https://apps.microsoft.com/detail/9n26s50ln705)
+and/or a JPEG XL extension from the Microsoft Store, i.e. the `wic`
+feature that `cargo build --release` enables by default), while macOS and
+other non-Windows builds statically link libavif + dav1d and `jxl-oxide`
+into the extension instead. HEIC and SVG are not supported yet.
 
 ## Installing
+
+### Windows
 
 Download `ArcThumb-Setup.exe` from [Releases](https://github.com/citrussoda-com/ArcThumb/releases) and run it. By default the installer is per-user, so Windows will not prompt for admin rights. Right-click the installer and choose **Run as administrator** (or accept the UAC dialog) to install machine-wide instead — required when Explorer runs at high integrity, such as Windows Sandbox or some enterprise lockdowns. New files get thumbnails immediately. The preview pane is enabled by default; press `Alt+P` in Explorer to open it.
 
 To uninstall, use **Settings → Apps → Installed apps**, find `ArcThumb`, and remove it. Both files and registry entries are cleaned up.
 
+### macOS
+
+Download `ArcThumb-<version>-macOS.zip` from [Releases](https://github.com/citrussoda-com/ArcThumb/releases), unzip it into `/Applications` or `~/Applications`, then register it. Release builds are ad-hoc signed, so the first launch needs a right-click → **Open** (or `xattr -dr com.apple.quarantine ArcThumb.app`).
+
+To build and install from this repository instead (`--install` performs both the Launch Services and Pluginkit steps Finder needs):
+
+```sh
+brew install cmake meson ninja     # to compile the bundled AVIF decoder
+./macos/build-appex.sh --release --install
+```
+
+Then enable it under **System Settings → Privacy & Security → Extensions → Thumbnailing Extensions** (or `pluginkit -e use -i com.citrussoda.ArcThumb.thumbnail`) and clear any cached icons with `qlmanage -r cache`. Full instructions, settings keys and troubleshooting are in [macos/README.md](macos/README.md).
+
 ## Configuration
 
-Open **ArcThumb Configuration** from the Start menu.
+Open **ArcThumb Configuration** from the Start menu. On macOS the same window is **ArcThumb.app** itself — it reads and writes the extension's settings file, and `--lang en|ja|zh` overrides the language (the OS locale decides otherwise).
 
 ![ArcThumb Configuration dialog with extension toggles, sort order, cover preference and the Regenerate thumbnails button](assets/screenshot.png)
 
@@ -85,6 +108,18 @@ target\release\arcthumb-config.exe --uninstall # undo (cleans both hives best-ef
 iscc installer\arcthumb.iss                    # build the installer
 # output: target\installer\ArcThumb-Setup.exe
 ```
+
+### macOS
+
+```sh
+cargo test                                              # shared core
+cargo test --manifest-path macos/arcthumb-ffi/Cargo.toml # through the C ABI
+./macos/build-appex.sh --release                        # .app + .appex in macos/build/
+./macos/build-appex.sh --release --universal            # arm64 + x86_64
+```
+
+The default Cargo features (`wic`, `config-gui`) are Windows-only backends; on
+other targets they resolve to nothing, so no flag juggling is needed.
 
 ### Reinstalling after a DLL change
 
@@ -212,7 +247,24 @@ Get-Content "$env:TEMP\arcthumb.log"
 
 ## How it's put together
 
-ArcThumb ships two COM classes inside one DLL:
+The platform-independent work — reading containers, picking the cover,
+decoding images (including AVIF and JXL), resizing, drawing the overlay —
+lives in the Rust core (`src/archive`, `src/decode`, `src/ebook`,
+`src/overlay`, joined in `src/thumbnail.rs`, which returns an RGBA bitmap).
+Each platform adds only what a file manager demands:
+
+| Platform | Backend | Pixel hand-off |
+|---|---|---|
+| Windows | `IThumbnailProvider` + `IPreviewHandler` COM classes, registered per-extension in the registry | `RgbaImage` → premultiplied BGRA DIB section (`HBITMAP`) |
+| macOS | `QLThumbnailProvider` app extension, matched by UTI (`macos/`) | `RgbaImage` → premultiplied RGBA8 → `CGDataProvider` → `CGImage`, over a six-function C ABI (`macos/arcthumb-ffi`) |
+
+Neither backend re-implements archive or image logic, and no image bytes
+ever go to disk on either platform. See
+[docs/WIC_IMPLEMENTATION.md](docs/WIC_IMPLEMENTATION.md) and
+[docs/MACOS_IMPLEMENTATION.md](docs/MACOS_IMPLEMENTATION.md) for the
+per-platform details.
+
+On Windows, ArcThumb ships two COM classes inside one DLL:
 
 | Class | CLSID | Purpose |
 |---|---|---|
@@ -226,6 +278,7 @@ The Inno Setup installer does not write any CLSID keys directly. It runs `arcthu
 ## Known limitations
 
 - HEIC, SVG, and DjVu are not supported.
+- On macOS the Quick Look extension covers thumbnails only; the preview pane and the configuration GUI are Windows-only for now. Wide-gamut AVIF/JXL covers are also not ICC-transformed yet — see [docs/MACOS_IMPLEMENTATION.md](docs/MACOS_IMPLEMENTATION.md).
 - Animated GIF and animated WebP show only the first frame.
 - Encrypted archives are not supported.
 - Very large archives are skipped by safety limits: ZIP and 7z handle files of any practical size, TAR and RAR are capped at 2 GiB, and image decoding stops at 512 MiB to defend against decompression bombs.

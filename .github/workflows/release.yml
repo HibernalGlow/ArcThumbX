@@ -1,6 +1,11 @@
-# Release: build portable zip on version tags.
+# Release: build the Windows portable zip and the macOS Quick Look app on
+# version tags.
 #
-# Triggers on `v*` tag pushes (e.g. `git tag v0.8.0 && git push --tags`).
+# Triggers on `v*` tag pushes (e.g. `git tag v0.11.0 && git push --tags`).
+#
+# The Windows job owns the GitHub Release (it creates it with the portable
+# zip). The macOS job runs after it and attaches its own asset, so one tag
+# produces one release with both platforms
 # Produces a portable zip with the DLL, config GUI, and license files —
 # no installer needed. Users extract, run `arcthumb-config.exe --install`,
 # and the shell extension registers.
@@ -82,3 +87,70 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  macos:
+    name: macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: release
+    # One artifact per architecture, each built on a runner of that
+    # architecture. There is no fat/universal build: `libdav1d-sys` builds
+    # dav1d with meson and ships no macOS cross-compile file, so the "other"
+    # arch would silently get host-arch objects. The Intel leg is
+    # best-effort because the availability of Intel macOS runners is not
+    # guaranteed; the arm64 asset must always publish.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+            optional: false
+          - arch: x86_64
+            runner: macos-15-intel
+            optional: true
+    continue-on-error: ${{ matrix.optional }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # The bundled AVIF decoder vendors libavif (cmake) and dav1d
+      # (meson/ninja) as C sources; nasm is needed on x86_64 for dav1d's
+      # assembly.
+      - name: Install C build tools
+        run: brew install cmake meson ninja nasm
+
+      - name: Test
+        run: |
+          cargo test
+          cargo test --manifest-path macos/arcthumb-ffi/Cargo.toml
+
+      - name: Build app
+        run: ./macos/build-appex.sh --release --arch="${{ matrix.arch }}" --sign="${{ vars.MACOS_SIGN_IDENTITY }}"
+
+      - name: Verify the binary matches its arch
+        run: |
+          lipo -info macos/build/ArcThumb.app/Contents/MacOS/ArcThumb
+          lipo -archs macos/build/ArcThumb.app/Contents/PlugIns/ArcThumbThumbnail.appex/Contents/MacOS/ArcThumbThumbnail | grep -w "${{ matrix.arch }}"
+          codesign --verify --verbose=2 macos/build/ArcThumb.app
+
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          zip="ArcThumb-$version-macOS-${{ matrix.arch }}.zip"
+          ditto -c -k --keepParent macos/build/ArcThumb.app "$zip"
+          shasum -a 256 "$zip" > "$zip.sha256"
+          ls -l "$zip"
+          echo "ZIP_NAME=$zip" >> "$GITHUB_ENV"
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "$ZIP_NAME" "$ZIP_NAME.sha256" --clobber

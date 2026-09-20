@@ -1,0 +1,31 @@
+[package]
+name = "arcthumb-ffi"
+version = "0.11.0"
+edition = "2024"
+description = "C ABI surface over the ArcThumb thumbnail core, used by the macOS Quick Look thumbnail extension."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+# A static library is linked straight into the .appex binary: nothing to
+# install, nothing to locate at run time, and the extension's code
+# signature covers the Rust code automatically.
+# `staticlib` is what the .appex links against; `rlib` exists so the
+# integration tests in tests/ can call the same entry points from Rust.
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+# The core is used with default features off: `wic` is the Windows-only
+# system-codec backend and resolves to nothing here anyway.
+arcthumb = { path = "../..", default-features = false }
+
+[dev-dependencies]
+zip = { version = "8", default-features = false, features = ["deflate"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# The tests assert against the core's own limit constants.
+arcthumb = { path = "../..", default-features = false }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

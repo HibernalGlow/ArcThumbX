@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Quick Look thumbnail extensions are sandboxed: Finder hands us a
+	     file we never asked for, so the container is the blast radius. The
+	     system's own quicklook-thumbnail profile grants read access to the
+	     URL in the request out-of-band, which is why no personal-files
+	     entitlement is needed here. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	<!-- Outbound connections are only used by the (Windows) updater; the
+	     extension never opens a socket. Left off deliberately. -->
+</dict>
+</plist>
