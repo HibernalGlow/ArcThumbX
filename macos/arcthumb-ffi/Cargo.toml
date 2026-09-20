@@ -1,6 +1,6 @@
 [package]
 name = "arcthumb-ffi"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2024"
 description = "C ABI surface over the ArcThumb thumbnail core, used by the macOS Quick Look thumbnail extension."
 license = "MIT OR Apache-2.0"
