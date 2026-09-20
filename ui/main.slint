@@ -90,6 +90,12 @@ export component MainWindow inherits Window {
     // Rust side (`state::cover_mode_{to,from}_index`).
     in-out property <int> cover_mode;
     in-out property <bool> enable_preview;
+    // Whether the preview-pane row can be toggled at all. The preview pane
+    // is an Explorer feature with no macOS counterpart, so the macOS front
+    // end sets this to false: the row stays visible, greyed out, and honest
+    // about what it is, instead of silently vanishing or accepting input it
+    // can never honour.
+    in property <bool> preview-available: true;
     in-out property <bool> overlay_border;
     in-out property <bool> overlay_label;
     in-out property <bool> log_enabled;
@@ -228,6 +234,7 @@ export component MainWindow inherits Window {
                             vertical-stretch: 0;
                             text: root.enable_preview_label;
                             checked <=> root.enable_preview;
+                            enabled: root.preview-available;
                         }
                         CheckBox {
                             vertical-stretch: 0;
@@ -484,4 +491,51 @@ export component MainWindowPreview inherits MainWindow {
         { name: ".avif", enabled: true  },
         { name: ".jxl",  enabled: true  },
     ];
+}
+
+// One or two buttons with a wrapped message — the cross-platform stand-in
+// for the Win32 message box the Windows front end uses. Slint owns the
+// layout so it picks up the same style as the main window.
+export component NoticeDialog inherits Window {
+    title: root.dialog_title;
+    icon: @image-url("../assets/icon.png");
+    preferred-width: 420px;
+    preferred-height: 200px;
+    min-width: 320px;
+    min-height: 160px;
+
+    in property <string> dialog_title;
+    in property <string> message_text;
+    in property <string> btn_ok;
+    in property <string> btn_cancel;
+    // Confirm-style notices show both buttons; informational ones only OK.
+    in property <bool> has-cancel: false;
+
+    callback accepted();
+    callback rejected();
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+        Text {
+            text: root.message_text;
+            wrap: word-wrap;
+            vertical-stretch: 1;
+        }
+        HorizontalLayout {
+            horizontal-stretch: 0;
+            spacing: 8px;
+            Rectangle { horizontal-stretch: 1; }
+            Button {
+                text: root.btn_cancel;
+                visible: root.has-cancel;
+                clicked => { root.rejected(); }
+            }
+            Button {
+                text: root.btn_ok;
+                primary: true;
+                clicked => { root.accepted(); }
+            }
+        }
+    }
 }

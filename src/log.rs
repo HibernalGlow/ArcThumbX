@@ -18,28 +18,48 @@ use std::sync::OnceLock;
 
 use crate::limits;
 
+/// The logging decision, made once and then frozen. Shared by
+/// [`enabled`] and [`set_enabled`]; a function-local `static` would
+/// create two independent latches.
+static ENABLED: OnceLock<bool> = OnceLock::new();
+
 /// Decide once whether logging is on, cache the result.
 ///
 /// Logging is enabled when any of:
 /// - This is a debug build (`cfg!(debug_assertions)`)
 /// - The environment variable `ARCTHUMB_LOG` is set
-/// - The registry key `HKCU\Software\ArcThumb\LogEnabled` is non-zero
+/// - (Windows) the registry key `HKCU\Software\ArcThumb\LogEnabled` is
+///   non-zero
+/// - The host process called [`set_enabled`] with `true` before the
+///   first log line (the macOS extension does, from its `UserDefaults`)
 fn enabled() -> bool {
-    static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| {
         if cfg!(debug_assertions) || std::env::var_os("ARCTHUMB_LOG").is_some() {
             return true;
         }
         // Check registry: HKCU\Software\ArcThumb\LogEnabled
-        use winreg::RegKey;
-        use winreg::enums::*;
-        if let Ok(key) = RegKey::predef(HKEY_CURRENT_USER).open_subkey("Software\\ArcThumb")
-            && let Ok(v) = key.get_value::<u32, _>("LogEnabled")
+        #[cfg(windows)]
         {
-            return v != 0;
+            use winreg::RegKey;
+            use winreg::enums::*;
+            if let Ok(key) = RegKey::predef(HKEY_CURRENT_USER).open_subkey("Software\\ArcThumb")
+                && let Ok(v) = key.get_value::<u32, _>("LogEnabled")
+            {
+                return v != 0;
+            }
         }
         false
     })
+}
+
+/// Pin the logging decision explicitly, before anything logs.
+///
+/// Hosts that keep their configuration somewhere the core can't read
+/// (the macOS extension stores it in `UserDefaults`) call this at
+/// startup. Only the first call counts — later ones are ignored, so the
+/// decision can't flip mid-session and leave a half-written log.
+pub fn set_enabled(on: bool) {
+    let _ = ENABLED.set(on);
 }
 
 /// Append `msg` (with newline) to the log file at `path`. Truncates
@@ -137,7 +157,13 @@ mod tests {
         // and must NOT propagate an error. The thumbnail pipeline
         // calls `alog!` from hot paths and a logging failure must
         // never abort it.
+        // A path whose parent directory can never exist on this platform.
+        // The Windows spelling is a relative path with backslashes on
+        // Unix — valid filename characters — so it would *succeed* there.
+        #[cfg(windows)]
         let bad = std::path::PathBuf::from(r"Z:\definitely\not\a\real\directory\arcthumb_test.log");
+        #[cfg(not(windows))]
+        let bad = std::path::PathBuf::from("/nonexistent-parent/arcthumb_test.log/dir/file");
         log_to(&bad, "this should be silently dropped");
         assert!(!bad.exists());
     }

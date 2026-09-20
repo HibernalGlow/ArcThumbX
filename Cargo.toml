@@ -1,6 +1,15 @@
+[workspace]
+# The macOS FFI shim (and everything under macos/) is deliberately *not*
+# a workspace member: `cargo build` / `cargo test` on Windows must keep
+# compiling exactly the same targets they always did, and the shim
+# depends on this crate with `default-features = false`. Build it
+# directly (`cargo build -p arcthumb-ffi` from its own directory).
+members = []
+exclude = ["macos/arcthumb-ffi"]
+
 [package]
 name = "arcthumb"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2024"
 description = "Windows Shell Extension that generates Explorer thumbnails and preview-pane previews for comic-book archives (ZIP/CBZ/RAR/CBR/7Z/CB7/CBT) and ebooks (EPUB/FB2/MOBI/AZW/AZW3)."
 license = "MIT OR Apache-2.0"
@@ -16,35 +25,25 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "arcthumb-config"
 path = "src/bin/arcthumb-config/main.rs"
+required-features = ["config-gui"]
 
 [features]
-default = ["wic"]
+default = ["wic", "config-gui"]
 # AVIF + JXL decoding via Windows Imaging Component (WIC).
 # Requires system-installed codecs: AV1 Image Extensions (AVIF) and/or
 # JPEG XL Extensions (JXL). Windows 11 24H2+ typically has these
 # built-in; Windows 10 needs them installed from the Microsoft Store.
 # Enabled by default. Disable with: cargo build --no-default-features
 wic = []
+# The `arcthumb-config` settings dialog and its GUI toolkit. Only the
+# binary needs it, so the thumbnail backends — Explorer's and the macOS
+# one — build without it. Turn off with --no-default-features to check or
+# ship just the extension. The updater's HTTP client (`ureq`) is separate:
+# it lives in the Windows dependency table because the updater itself is
+# Windows-only.
+config-gui = ["dep:slint"]
 
 [dependencies]
-windows-core = "0.62"
-windows = { version = "0.62", features = [
-    "Win32_Foundation",
-    "Win32_Graphics_Gdi",
-    "Win32_Graphics_Imaging",
-    "Win32_Security",
-    "Win32_System_Com",
-    "Win32_System_Com_StructuredStorage",
-    "Win32_System_LibraryLoader",
-    "Win32_System_Ole",
-    "Win32_System_Threading",
-    "Win32_UI_Shell",
-    "Win32_UI_Shell_PropertiesSystem",
-    "Win32_Globalization",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_UI_Input_KeyboardAndMouse",
-]}
-winreg = "0.56"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 sevenz-rust = "0.6"
 unrar = "0.5"
@@ -77,11 +76,12 @@ image = { version = "0.25", default-features = false, features = [
 # icon size. Only pulled onto the hot path when the label overlay is
 # enabled; it is off by default.
 ab_glyph = "0.2"
-# Slint is the GUI toolkit for the `arcthumb-config` binary. Strings
-# are passed from Rust to the Slint UI via properties for now; the
-# language is picked at startup from the registry override and OS
-# locale. Switching to `@tr(...)` + gettext is a future refactor
-# tracked in TODO.md.
+# Slint is the GUI toolkit for the `arcthumb-config` binary — the settings
+# window on Windows *and* on macOS, which is why it is not confined to the
+# Windows dependency table. Strings are passed from Rust to the Slint UI via
+# properties for now; the language is picked at startup from a per-platform
+# override and the OS locale. Switching to `@tr(...)` + gettext is a future
+# refactor tracked in TODO.md.
 #
 # We pin to the software renderer instead of the default femtovg
 # (OpenGL ES 2.0) so the config dialog still launches on hosts
@@ -89,37 +89,84 @@ ab_glyph = "0.2"
 # with broken or missing GL drivers. arcthumb-config repaints rarely
 # enough that the CPU renderer is invisible to the user, and it
 # drops femtovg + glutin from the dependency tree.
-slint = { version = "1.15", default-features = false, features = [
+slint = { version = "1.15", optional = true, default-features = false, features = [
     "backend-winit",
     "renderer-software",
     "compat-1-2",
 ] }
+
+# ---------------------------------------------------------------------------
+# Platform-specific dependencies
+# ----------------------------------------------------------------
+# Everything in this table is Windows-only: the COM shell extension, the
+# registry backing store for settings, and the `arcthumb-config` GUI.
+# Keeping them out of the generic `[dependencies]` table is what lets the
+# cross-platform core (archive / cover / decode / bitmap) compile for
+# macOS at all — the `windows` crate's generated bindings do not build for
+# non-Windows targets.
+[target.'cfg(windows)'.dependencies]
+windows-core = "0.62"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Ole",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_Globalization",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+]}
+winreg = "0.56"
 # HTTP client for the update checker in arcthumb-config. Blocking API
 # called from a background thread — no async runtime needed. Only
 # referenced from the config binary; LTO strips it from the DLL.
+# Windows-only because the updater itself is Windows-only.
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 
-[build-dependencies]
-# Compile and embed an application manifest so arcthumb-config.exe
-# links against Common Controls v6. Without this, nwg fails to
-# resolve `GetWindowSubclass` at process start and the exe won't
-# launch. Applies to both the DLL and the exe; the DLL ignores it.
-embed-resource = "3"
-# Compiles `.slint` UI files into Rust code that the binary pulls in
-# via `slint::include_modules!()`. Keep the version in sync with the
-# `slint` runtime crate above.
-slint-build = "1.15"
+# ---------------------------------------------------------------------------
+# Bundled AVIF / JXL decoders for platforms without WIC
+# ----------------------------------------------------------------
+# Windows gets AVIF + JXL from the system (the `wic` feature). Nowhere else
+# has an equivalent, so the codecs ship inside the binary:
+#
+#   * `libavif-image` + `libavif-sys` — libavif 1.0 with the dav1d AV1
+#     decoder, both vendored as C sources in the crate and statically
+#     linked (BSD-2-Clause, same license as the upstream codecs). Build
+#     needs `cc` plus `cmake` (libavif) and `meson`+`ninja` (dav1d);
+#     `nasm` additionally on x86_64 for dav1d's assembly.
+#   * `jxl-oxide` — pure-Rust JPEG XL decoder, the same crate this project
+#     used before the WIC switch.
+#
+# Declared under a target table rather than behind feature flags so the
+# code that uses them is gated by `cfg(not(windows))` only, and a Windows
+# build never sees a C toolchain requirement it doesn't need.
+[target.'cfg(not(windows))'.dependencies]
+libavif-image = { version = "0.14", default-features = false, features = [
+    "codec-dav1d",
+] }
+libavif-sys = { version = "0.17", default-features = false, features = [
+    "codec-dav1d",
+] }
+jxl-oxide = { version = "0.12", features = ["image"] }
 
 [dev-dependencies]
-# Headless backend for Slint so the arcthumb-config GUI tests can
-# create real Slint components and exercise the property setters /
-# getters / callbacks without bringing up a window or requiring a
-# display server. Keep the version pinned to the same minor as the
-# `slint` runtime above.
-i-slint-backend-testing = "1.15"
 # Integration tests need to call Win32 APIs directly (LoadLibrary,
 # GetProcAddress, SHCreateMemStream, GDI cleanup) and to talk to
 # arcthumb.dll across the COM ABI like Explorer would.
+zip = { version = "8", default-features = false, features = ["deflate"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+# Used by archive::tests to compute the file/header CRCs needed to
+# hand-craft a minimal RAR4 fixture in-memory (RAR is a proprietary
+# write format, so there is no Rust crate that can produce one).
+crc32fast = "1"
+
+[target.'cfg(windows)'.dev-dependencies]
 windows-core = "0.62"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
@@ -132,12 +179,23 @@ windows = { version = "0.62", features = [
     "Win32_UI_Shell_PropertiesSystem",
     "Win32_UI_WindowsAndMessaging",
 ]}
-zip = { version = "8", default-features = false, features = ["deflate"] }
-image = { version = "0.25", default-features = false, features = ["png"] }
-# Used by archive::tests to compute the file/header CRCs needed to
-# hand-craft a minimal RAR4 fixture in-memory (RAR is a proprietary
-# write format, so there is no Rust crate that can produce one).
-crc32fast = "1"
+# Headless backend for Slint so the arcthumb-config GUI tests can
+# create real Slint components and exercise the property setters /
+# getters / callbacks without bringing up a window or requiring a
+# display server. Keep the version pinned to the same minor as the
+# `slint` runtime above.
+i-slint-backend-testing = "1.15"
+
+[build-dependencies]
+# Compile and embed an application manifest so arcthumb-config.exe
+# links against Common Controls v6. Without this, nwg fails to
+# resolve `GetWindowSubclass` at process start and the exe won't
+# launch. Applies to both the DLL and the exe; the DLL ignores it.
+embed-resource = "3"
+# Compiles `.slint` UI files into Rust code that the binary pulls in
+# via `slint::include_modules!()`. Keep the version in sync with the
+# `slint` runtime crate above.
+slint-build = "1.15"
 
 [profile.release]
 lto = true

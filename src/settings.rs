@@ -1,10 +1,18 @@
-//! User-tweakable settings, read from `HKCU\Software\ArcThumb`.
+//! User-tweakable settings.
 //!
-//! All keys are optional. Missing or malformed keys fall back to the
-//! built-in defaults. Settings are loaded once per Explorer process
-//! and cached — changes take effect after restarting Explorer.
+//! All keys are optional. Missing or malformed values fall back to the
+//! built-in defaults. The *storage* is platform-specific:
 //!
-//! ## Registry layout
+//! * **Windows** reads them from `HKCU\Software\ArcThumb`, written by the
+//!   `arcthumb-config` GUI. They are loaded once per Explorer process and
+//!   cached — changes take effect after restarting Explorer.
+//! * **macOS** has no registry. The Quick Look extension reads
+//!   `UserDefaults` in Swift and hands a snapshot to the Rust core over
+//!   the FFI boundary, so the core stays free of platform config APIs.
+//!   [`Settings::load`] therefore returns the defaults on non-Windows
+//!   targets.
+//!
+//! ## Registry layout (Windows)
 //!
 //! ```text
 //! HKEY_CURRENT_USER\Software\ArcThumb
@@ -16,17 +24,21 @@
 //! ```
 //!
 //! Users can tweak these by hand in `regedit` until a proper config
-//! GUI (Phase 4f.2) exists.
+//! GUI exists.
 
 use std::cmp::Ordering;
 use std::sync::OnceLock;
 
+#[cfg(windows)]
 use winreg::RegKey;
+#[cfg(windows)]
 use winreg::enums::*;
 
 /// Number of image formats before WIC (AVIF/JXL) was added.
 /// Used as the assumed format count when `FormatCount` is missing
 /// from the registry (i.e. settings were saved by an older build).
+/// Only reachable from the Windows registry loader.
+#[cfg_attr(not(windows), allow(dead_code))]
 const PRE_WIC_FORMAT_COUNT: u32 = 9;
 
 /// How to order image files within an archive before picking the
@@ -43,6 +55,9 @@ pub enum SortOrder {
 }
 
 impl SortOrder {
+    /// Only called by the Windows registry loader, but exercised by the
+    /// cross-platform parse tests.
+    #[cfg_attr(not(windows), allow(dead_code))]
     fn from_registry_value(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
             "alphabetical" | "alpha" => Some(Self::Alphabetical),
@@ -82,6 +97,9 @@ pub enum CoverMode {
 }
 
 impl CoverMode {
+    /// Only called by the Windows registry loader, but exercised by the
+    /// cross-platform parse tests.
+    #[cfg_attr(not(windows), allow(dead_code))]
     fn from_registry_value(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
             "ignore" => Some(Self::Ignore),
@@ -106,6 +124,12 @@ impl CoverMode {
 /// user-facing `Settings::enabled_image_exts_mask` picks a subset.
 /// Order is load-bearing: bit `i` of the mask refers to index `i`
 /// here, so never reorder or delete entries — append only.
+///
+/// AVIF and JXL only appear when a backend that can actually decode
+/// them is compiled in: WIC on Windows, the bundled native decoders
+/// elsewhere. A listed-but-undecodable extension would turn a cover
+/// into a decode failure instead of letting the picker fall through
+/// to a sibling image.
 pub const SUPPORTED_IMAGE_EXTS: &[&str] = &[
     ".jpg",
     ".jpeg",
@@ -116,9 +140,9 @@ pub const SUPPORTED_IMAGE_EXTS: &[&str] = &[
     ".tif",
     ".webp",
     ".ico",
-    #[cfg(feature = "wic")]
+    #[cfg(any(feature = "wic", not(windows)))]
     ".avif",
-    #[cfg(feature = "wic")]
+    #[cfg(any(feature = "wic", not(windows)))]
     ".jxl",
 ];
 
@@ -126,6 +150,26 @@ pub const SUPPORTED_IMAGE_EXTS: &[&str] = &[
 /// as the fallback when the registry key is missing or malformed.
 pub const fn default_enabled_image_exts_mask() -> u32 {
     let n = SUPPORTED_IMAGE_EXTS.len();
+    if n >= 32 { u32::MAX } else { (1u32 << n) - 1 }
+}
+
+/// Archive/container extensions ArcThumb knows how to open. Same
+/// "append only, never reorder" rule as [`SUPPORTED_IMAGE_EXTS`], because
+/// bit `i` of [`Settings::enabled_archive_exts_mask`] indexes this list.
+///
+/// On Windows this list is informational: which extensions Explorer asks
+/// about is decided by the `ShellEx` registry bindings the installer
+/// writes, and the mask stays all-on. It becomes a real switch on macOS,
+/// where a Quick Look extension claims its types statically in
+/// `Info.plist` and the only place left to say "not this one" is here.
+pub const SUPPORTED_ARCHIVE_EXTS: &[&str] = &[
+    "zip", "cbz", "rar", "cbr", "7z", "cb7", "tar", "cbt", "epub", "fb2", "mobi", "azw", "azw3",
+];
+
+/// Every supported archive extension enabled — the factory default, and
+/// what Windows always uses.
+pub const fn default_enabled_archive_exts_mask() -> u32 {
+    let n = SUPPORTED_ARCHIVE_EXTS.len();
     if n >= 32 { u32::MAX } else { (1u32 << n) - 1 }
 }
 
@@ -153,6 +197,10 @@ pub struct Settings {
     /// [`Self::overlay_border`]. Dropped automatically at very small
     /// thumbnail sizes where the text would be unreadable.
     pub overlay_label: bool,
+    /// Bitmask over `SUPPORTED_ARCHIVE_EXTS`: bit `i` set = archives
+    /// named with that extension may be thumbnailed. See the note on that
+    /// constant for why this only bites on non-Windows hosts.
+    pub enabled_archive_exts_mask: u32,
     /// Write diagnostic messages to `%TEMP%\arcthumb.log`. Off by
     /// default — useful for troubleshooting when thumbnails don't
     /// appear. Can also be forced on via the `ARCTHUMB_LOG`
@@ -166,6 +214,7 @@ impl Default for Settings {
             sort_order: SortOrder::Natural,
             cover_mode: CoverMode::Prefer,
             enabled_image_exts_mask: default_enabled_image_exts_mask(),
+            enabled_archive_exts_mask: default_enabled_archive_exts_mask(),
             overlay_border: false,
             overlay_label: false,
             log_enabled: false,
@@ -174,12 +223,31 @@ impl Default for Settings {
 }
 
 /// Registry subkey under `HKCU` where settings live in production.
+#[cfg(windows)]
 const SETTINGS_SUBKEY: &str = "Software\\ArcThumb";
 
 impl Settings {
+    /// Load the persisted settings for the current platform.
+    ///
+    /// Windows reads the registry; elsewhere there is no in-process
+    /// config store (the Quick Look extension supplies a snapshot built
+    /// from `UserDefaults` through the FFI), so this yields the
+    /// defaults.
+    pub fn load() -> Self {
+        #[cfg(windows)]
+        {
+            Self::load_from_registry_uncached()
+        }
+        #[cfg(not(windows))]
+        {
+            Self::default()
+        }
+    }
+
     /// Read settings from `HKCU\Software\ArcThumb` without touching the
     /// process-wide cache. The config GUI uses this so each "Apply"
     /// round sees fresh registry state.
+    #[cfg(windows)]
     pub fn load_from_registry_uncached() -> Self {
         Self::load_from_subkey(SETTINGS_SUBKEY)
     }
@@ -187,6 +255,7 @@ impl Settings {
     /// Core load routine, parameterised by subkey so tests can
     /// round-trip through a throwaway path without stomping on the
     /// user's real settings.
+    #[cfg(windows)]
     fn load_from_subkey(subkey: &str) -> Self {
         let mut out = Self::default();
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
@@ -252,8 +321,26 @@ impl Settings {
 
     /// Write every setting to `HKCU\Software\ArcThumb`. Creates the
     /// key if missing. Leaves other values (e.g. `Language`) untouched.
+    #[cfg(windows)]
     pub fn save_to_registry(&self) -> std::io::Result<()> {
         self.save_to_subkey(SETTINGS_SUBKEY)
+    }
+
+    /// Should an archive named `ext` (lowercased, no dot) be thumbnailed?
+    ///
+    /// `None` means the host could not tell us an extension — e.g.
+    /// Explorer handing over a bare `IStream` with no `Stat` name — and we
+    /// deliberately allow it, because on Windows the registration layer
+    /// already decided which files reach us.
+    pub fn accepts_archive_ext(&self, ext: Option<&str>) -> bool {
+        let Some(ext) = ext else { return true };
+        SUPPORTED_ARCHIVE_EXTS
+            .iter()
+            .enumerate()
+            .any(|(i, candidate)| {
+                (self.enabled_archive_exts_mask & (1u32 << i)) != 0
+                    && ext.eq_ignore_ascii_case(candidate)
+            })
     }
 
     /// Is `name` a candidate image under the current settings?
@@ -297,6 +384,7 @@ impl Settings {
         }
     }
 
+    #[cfg(windows)]
     fn save_to_subkey(&self, subkey: &str) -> std::io::Result<()> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         let (key, _) = hkcu.create_subkey(subkey)?;
@@ -316,11 +404,16 @@ impl Settings {
 }
 
 /// Process-wide cached settings. Loaded lazily on first use and
-/// held for the lifetime of the Explorer process. Restart Explorer
+/// held for the lifetime of the host process. Restart Explorer
 /// to pick up registry edits.
+///
+/// Platform backends that receive their settings from the host (the
+/// macOS Quick Look extension passes a `UserDefaults`-derived snapshot
+/// through the FFI) should use [`Settings::load`] or the supplied
+/// snapshot instead of this cache.
 pub fn current() -> &'static Settings {
     static CACHE: OnceLock<Settings> = OnceLock::new();
-    CACHE.get_or_init(Settings::load_from_registry_uncached)
+    CACHE.get_or_init(Settings::load)
 }
 
 /// Allocation-free case-insensitive suffix check on ASCII bytes.
@@ -608,6 +701,8 @@ mod tests {
         assert_eq!(CoverMode::from_registry_value("garbage"), None);
     }
 
+    // Registry-backed: Windows only.
+    #[cfg(windows)]
     #[test]
     fn cover_mode_registry_round_trip_all_values() {
         for mode in [CoverMode::Ignore, CoverMode::Prefer, CoverMode::Only] {
@@ -622,6 +717,8 @@ mod tests {
         }
     }
 
+    // Registry-backed: Windows only.
+    #[cfg(windows)]
     #[test]
     fn legacy_prefer_cover_names_falls_back() {
         // Older builds wrote PreferCoverNames (REG_DWORD) and no
@@ -636,6 +733,8 @@ mod tests {
         }
     }
 
+    // Registry-backed: Windows only.
+    #[cfg(windows)]
     #[test]
     fn cover_mode_takes_precedence_over_legacy_key() {
         // When both keys exist (an upgrade that re-saved), CoverMode wins.
@@ -700,8 +799,10 @@ mod tests {
     /// RAII helper that picks a unique throwaway subkey under
     /// `HKCU\Software\ArcThumb_test\...` and deletes it on drop so
     /// parallel tests don't stomp on each other or leak state.
+    #[cfg(windows)]
     struct ScratchSubkey(String);
 
+    #[cfg(windows)]
     impl ScratchSubkey {
         fn new(tag: &str) -> Self {
             use std::sync::atomic::{AtomicU64, Ordering};
@@ -719,6 +820,7 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
     impl Drop for ScratchSubkey {
         fn drop(&mut self) {
             let hkcu = RegKey::predef(HKEY_CURRENT_USER);
@@ -726,6 +828,8 @@ mod tests {
         }
     }
 
+    // Registry-backed: Windows only.
+    #[cfg(windows)]
     #[test]
     fn settings_registry_round_trip_preserves_all_fields() {
         let scratch = ScratchSubkey::new("roundtrip");
@@ -752,6 +856,8 @@ mod tests {
         assert!(loaded.log_enabled, "log_enabled round-trips");
     }
 
+    // Registry-backed: Windows only.
+    #[cfg(windows)]
     #[test]
     fn settings_load_missing_subkey_returns_defaults() {
         let scratch = ScratchSubkey::new("missing");
@@ -761,6 +867,8 @@ mod tests {
         assert_eq!(loaded, Settings::default());
     }
 
+    // Registry-backed: Windows only.
+    #[cfg(windows)]
     #[test]
     fn settings_load_masks_out_of_range_high_bits() {
         // Simulate a future build with more formats that wrote a
@@ -783,6 +891,8 @@ mod tests {
         );
     }
 
+    // Registry-backed: Windows only.
+    #[cfg(windows)]
     #[test]
     fn settings_round_trip_every_single_image_ext_toggle() {
         // End-to-end: for every supported image extension, flip just

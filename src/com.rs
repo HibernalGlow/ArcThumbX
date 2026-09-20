@@ -29,9 +29,14 @@ use windows::Win32::UI::Shell::{
 };
 use windows::core::{BOOL, GUID, IUnknown, Interface, Ref, Result, implement};
 
-use crate::{alog, archive, bitmap, decode, limits, overlay, settings, stream::ComStreamReader};
+use crate::stream::ComStreamReader;
+use crate::{alog, bitmap, limits, settings, thumbnail};
 
 /// End-to-end: stream → archive → first image bytes → decode → resize → HBITMAP.
+///
+/// The pixel pipeline itself lives in [`crate::thumbnail`] so the macOS
+/// Quick Look backend renders exactly the same image; this function only
+/// converts the result into the GDI object Explorer asks for.
 ///
 /// Any failure propagates as `Err`; the caller logs it and returns
 /// `E_FAIL` so Explorer falls back to the default icon.
@@ -48,49 +53,13 @@ fn try_generate_thumbnail(
     let file_ext = stream_file_ext(&stream);
 
     let reader = ComStreamReader::new(stream);
-    let extracted = match archive::read_first_image_with_kind(reader, settings) {
-        Ok(e) => e,
-        Err(e) => {
-            alog!("  ERROR picking image: {e}");
-            return Err(e);
-        }
-    };
+    let rendered = thumbnail::render(reader, cx, cx, file_ext.as_deref(), settings)?;
+    let hbmp = bitmap::from_rgba(&rendered.image)?;
     alog!(
-        "  picked: {} ({} bytes, ext={:?})",
-        extracted.name,
-        extracted.bytes.len(),
-        file_ext
+        "  hbitmap: {}x{}",
+        rendered.image.width(),
+        rendered.image.height()
     );
-
-    // Format-dispatching decoder with pre-decode size guards against
-    // decompression bombs. `decode_for_thumbnail` additionally asks
-    // the JPEG decoder to drop to a 1/2, 1/4 or 1/8 DCT scale when
-    // the source is much larger than the requested thumbnail — a
-    // multi-megapixel comic page is delivered at roughly twice the
-    // target size instead of at full resolution, cutting the decode
-    // cost by up to ~16×.
-    let img = match decode::decode_for_thumbnail(&extracted.name, &extracted.bytes, cx) {
-        Ok(img) => img,
-        Err(e) => {
-            alog!("  ERROR decoding '{}': {e}", extracted.name);
-            return Err(e);
-        }
-    };
-    alog!("  decoded: {}x{}", img.width(), img.height());
-
-    // Preserve aspect ratio, fit inside cx × cx. `Triangle` (bilinear)
-    // is a good default — fast and visually fine at thumbnail sizes.
-    let mut resized = img
-        .resize(cx, cx, image::imageops::FilterType::Triangle)
-        .to_rgba8();
-    alog!("  resized: {}x{}", resized.width(), resized.height());
-
-    // Bake the identification overlay (border / format label) when the
-    // user has opted in. A no-op by default, so existing installs keep
-    // the bare cover image.
-    overlay::apply_overlay(&mut resized, extracted.kind, file_ext.as_deref(), settings);
-
-    let hbmp = bitmap::from_rgba(&resized)?;
     Ok(hbmp)
 }
 

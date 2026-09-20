@@ -1,37 +1,72 @@
-//! ArcThumb — Windows Shell Extension (IThumbnailProvider)
+//! ArcThumb — archive cover-thumbnail engine.
 //!
-//! Phase 1: working thumbnail provider that returns a solid-color dummy
-//! bitmap for .zip files. Archive reading and real image decoding come
-//! in Phase 2.
+//! The crate is split in two halves:
+//!
+//! * a **platform-independent core** (`archive`, `ebook`, `decode`,
+//!   `settings`, `overlay`, `limits`, `log`, `thumbnail`) that reads
+//!   archives, picks the cover image, decodes it (including AVIF and
+//!   JPEG XL) and renders an RGBA bitmap; and
+//! * a **platform backend** that plugs that bitmap into the host's
+//!   thumbnail API. On Windows that is the COM `IThumbnailProvider`
+//!   shell extension in `com`/`bitmap`/`stream`/`preview`/`wic`; on
+//!   macOS it is the Quick Look extension in `macos/`, which reaches the
+//!   core through the C ABI shim in `macos/arcthumb-ffi`.
+//!
+//! Everything Windows-specific is gated behind `cfg(windows)` so the core
+//! can be built for other targets unchanged.
 
 #![allow(non_snake_case)]
 
-mod archive;
-mod bitmap;
-mod com;
-mod decode;
-mod ebook;
-pub mod elevation;
-mod limits;
-mod log;
-mod overlay;
-mod preview;
-pub mod registry;
+// =========================================================================
+// Platform-independent core
+// =========================================================================
+
+pub mod archive;
+pub mod decode;
+pub mod ebook;
+pub mod limits;
+pub mod log;
+pub mod overlay;
+pub mod pixel;
 pub mod settings;
+pub mod thumbnail;
+
+// =========================================================================
+// Windows shell-extension backend
+// =========================================================================
+
+#[cfg(windows)]
+mod bitmap;
+#[cfg(windows)]
+mod com;
+#[cfg(windows)]
+pub mod elevation;
+#[cfg(windows)]
+mod preview;
+#[cfg(windows)]
+pub mod registry;
+#[cfg(windows)]
 mod stream;
-#[cfg(feature = "wic")]
+#[cfg(all(windows, feature = "wic"))]
 mod wic;
 
+#[cfg(windows)]
 use std::panic::catch_unwind;
 
+#[cfg(windows)]
 use windows::Win32::Foundation::{E_FAIL, E_POINTER, S_FALSE, S_OK};
+#[cfg(windows)]
 use windows::Win32::System::Com::IClassFactory;
+#[cfg(windows)]
 use windows::core::{GUID, HRESULT, Interface};
 
+#[cfg(windows)]
 pub use com::CLSID_ARCTHUMB_PROVIDER;
+#[cfg(windows)]
 pub use preview::CLSID_ARCTHUMB_PREVIEW;
 
 /// COM error: "no class factory for the requested CLSID".
+#[cfg(windows)]
 const CLASS_E_CLASSNOTAVAILABLE: HRESULT = HRESULT(0x80040111u32 as i32);
 
 /// Catch any panic inside `f` and turn it into `E_FAIL`.
@@ -39,6 +74,7 @@ const CLASS_E_CLASSNOTAVAILABLE: HRESULT = HRESULT(0x80040111u32 as i32);
 /// Rust panics propagating across `extern "system"` are undefined
 /// behaviour — on Windows they'd crash Explorer. Every COM entry
 /// point in this DLL funnels through this helper.
+#[cfg(windows)]
 fn guard<F: FnOnce() -> HRESULT + std::panic::UnwindSafe>(f: F) -> HRESULT {
     match catch_unwind(f) {
         Ok(hr) => hr,
@@ -72,6 +108,7 @@ fn guard<F: FnOnce() -> HRESULT + std::panic::UnwindSafe>(f: F) -> HRESULT {
 ///   it. The OLE runtime handles this for normal `CoCreateInstance`
 ///   paths.
 #[unsafe(no_mangle)]
+#[cfg(windows)]
 pub unsafe extern "system" fn DllGetClassObject(
     rclsid: *const GUID,
     riid: *const GUID,
@@ -102,12 +139,14 @@ pub unsafe extern "system" fn DllGetClassObject(
 /// is a reasonable default — Explorer unloads us when it shuts down
 /// or when the DLL idle timer fires.
 #[unsafe(no_mangle)]
+#[cfg(windows)]
 pub extern "system" fn DllCanUnloadNow() -> HRESULT {
     guard(|| S_FALSE)
 }
 
 /// Called by `regsvr32 arcthumb.dll`.
 #[unsafe(no_mangle)]
+#[cfg(windows)]
 pub extern "system" fn DllRegisterServer() -> HRESULT {
     guard(|| match registry::register() {
         Ok(()) => S_OK,
@@ -117,6 +156,7 @@ pub extern "system" fn DllRegisterServer() -> HRESULT {
 
 /// Called by `regsvr32 /u arcthumb.dll`.
 #[unsafe(no_mangle)]
+#[cfg(windows)]
 pub extern "system" fn DllUnregisterServer() -> HRESULT {
     guard(|| match registry::unregister() {
         Ok(()) => S_OK,

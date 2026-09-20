@@ -1,5 +1,12 @@
 # WIC 解码模块实现文档
 
+> Scope note: WIC is the Windows path only. On macOS and other
+> non-Windows targets there is no WIC, so AVIF and JXL are decoded by
+> statically linked libavif+dav1d and `jxl-oxide` instead — see
+> [MACOS_IMPLEMENTATION.md](MACOS_IMPLEMENTATION.md). Everything in this
+> document still describes, and only governs, the Windows build.
+
+
 > **目标读者**：负责编辑代码的 AI 模型或开发者  
 > **状态**：Cargo.toml 已完成，其余 6 个文件待修改  
 > **最后更新**：2026-06-15

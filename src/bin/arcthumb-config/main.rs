@@ -39,21 +39,116 @@
 
 // Hide the console on release builds. Debug builds keep the console
 // so `cargo run` output is visible.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
+// Every module below is the Windows settings dialog and its registry /
+// shell-DLL plumbing. They are gated out elsewhere so `cargo test
+// --all-targets` still works on the macOS side of the shared core, where
+// the Quick Look extension replaces this binary.
+#[cfg(windows)]
 mod apply;
+#[cfg(windows)]
 mod cache;
+#[cfg(windows)]
 mod cli;
+#[cfg(windows)]
 mod dialogs;
+#[cfg(windows)]
 mod dll_path;
+#[cfg(windows)]
 mod extension_model;
 mod locale;
+#[cfg(windows)]
 mod message_box;
+#[cfg(windows)]
 mod state;
+#[cfg(windows)]
 mod ui;
+#[cfg(windows)]
 mod update;
+#[cfg(windows)]
 mod update_check;
 
+#[cfg(not(windows))]
+mod macos_ui;
+#[cfg(not(windows))]
+mod settings_store;
+
+/// Arguments the macOS front end understands. `--lang` is honoured on both
+/// platforms before any window is built.
+#[cfg(not(windows))]
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match args.first().map(String::as_str) {
+        Some("--lang") => {
+            locale::set_language_override(args.get(1).map(String::as_str));
+            macos_ui::run().unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                std::process::exit(5);
+            });
+        }
+        Some("--log-on" | "--log-off") => {
+            let on = args[0] == "--log-on";
+            let mut s = settings_store::load();
+            s.log_enabled = on;
+            match settings_store::save(&s) {
+                Ok(()) => println!(
+                    "Diagnostic logging {}. The extension re-reads its settings on \
+                     the next request; the log lands in its sandbox container.",
+                    if on { "enabled" } else { "disabled" }
+                ),
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some("--get") => {
+            // Prints what the extension will actually apply, after the same
+            // clamping and fallbacks it applies when reading the file — so a
+            // hand-edited settings file can be checked without opening Finder.
+            let s = settings_store::load().to_core();
+            println!("sort_order              = {:?}", s.sort_order);
+            println!("cover_mode              = {:?}", s.cover_mode);
+            println!(
+                "enabled_image_exts      = {:#014b}",
+                s.enabled_image_exts_mask
+            );
+            println!(
+                "enabled_archive_exts    = {:#014b}",
+                s.enabled_archive_exts_mask
+            );
+            println!("overlay_border          = {}", s.overlay_border);
+            println!("overlay_label           = {}", s.overlay_label);
+            println!("log_enabled             = {}", s.log_enabled);
+        }
+        Some("--regenerate") => {
+            if let Err(e) = settings_store::regenerate_thumbnails() {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }
+            println!("Thumbnail cache cleared.");
+        }
+        Some("--help" | "-h") => println!(
+            "usage: arcthumb-config [--lang en|ja|zh] [--log-on|--log-off]\n\
+               \t     [--get] [--regenerate]\n\
+            \n\
+            With no arguments, opens the settings window."
+        ),
+        None => {
+            macos_ui::run().unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                std::process::exit(5);
+            });
+        }
+        Some(other) => {
+            eprintln!("unknown argument: {other} (try --help)");
+            std::process::exit(2);
+        }
+    }
+}
+
+#[cfg(windows)]
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(|s| s.as_str()) {
@@ -102,6 +197,7 @@ fn main() {
 }
 
 /// Set the LogEnabled registry value and print feedback.
+#[cfg(windows)]
 fn set_log_enabled(enabled: bool) {
     use winreg::RegKey;
     use winreg::enums::*;
@@ -131,6 +227,7 @@ fn set_log_enabled(enabled: bool) {
 /// are visible when running from PowerShell or cmd.exe. No-op when
 /// the process already has a console (debug builds) or when there is
 /// no parent console to attach to (double-click launch).
+#[cfg(windows)]
 fn attach_console() {
     #[cfg(not(debug_assertions))]
     unsafe {

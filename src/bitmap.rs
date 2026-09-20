@@ -12,6 +12,8 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::core::{Error, Result};
 
+use crate::pixel::premul;
+
 /// Convert an `image::RgbaImage` to an HBITMAP suitable for returning
 /// from `IThumbnailProvider::GetThumbnail` with `WTSAT_ARGB`.
 ///
@@ -57,16 +59,13 @@ pub fn from_rgba(img: &image::RgbaImage) -> Result<HBITMAP> {
     Ok(hbmp)
 }
 
-/// Integer premultiply: `(c * a + 127) / 255`, rounded.
-#[inline]
-fn premul(c: u8, a: u8) -> u8 {
-    ((c as u16 * a as u16 + 127) / 255) as u8
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pixel::premul;
     use image::{ImageBuffer, Rgba};
+
+    // The `premul` arithmetic itself is covered in `crate::pixel`.
     use windows::Win32::Graphics::Gdi::{BITMAP, DeleteObject, GetObjectW, HGDIOBJ};
 
     /// Helper: build a tiny RgbaImage filled with the given pixel.
@@ -139,40 +138,5 @@ mod tests {
         let _g = OwnedHBitmap(hbmp);
         // Sanity: premultiplied red channel for alpha=128 is 128.
         assert_eq!(premul(255, 128), 128);
-    }
-
-    #[test]
-    fn premul_fully_opaque_is_identity() {
-        for c in [0u8, 1, 64, 127, 128, 200, 254, 255] {
-            assert_eq!(premul(c, 255), c, "c={c}");
-        }
-    }
-
-    #[test]
-    fn premul_fully_transparent_is_zero() {
-        for c in [0u8, 1, 64, 128, 255] {
-            assert_eq!(premul(c, 0), 0, "c={c}");
-        }
-    }
-
-    #[test]
-    fn premul_half_alpha() {
-        // (255 * 128 + 127) / 255 = 32767 / 255 = 128 (rounded).
-        assert_eq!(premul(255, 128), 128);
-        // (200 * 128 + 127) / 255 = 25727 / 255 = 100.
-        assert_eq!(premul(200, 128), 100);
-    }
-
-    #[test]
-    fn premul_never_overflows_u8() {
-        // Exhaustive over the entire 8-bit × 8-bit space — cheap and
-        // proves the (c*a+127)/255 expression stays in u8 range.
-        for c in 0u16..=255 {
-            for a in 0u16..=255 {
-                let p = premul(c as u8, a as u8);
-                // Result must never exceed the un-premultiplied colour.
-                assert!(p as u16 <= c, "c={c} a={a} p={p}");
-            }
-        }
     }
 }
