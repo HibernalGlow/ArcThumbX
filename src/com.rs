@@ -30,7 +30,7 @@ use windows::Win32::UI::Shell::{
 use windows::core::{BOOL, GUID, IUnknown, Interface, Ref, Result, implement};
 
 use crate::stream::ComStreamReader;
-use crate::{alog, bitmap, limits, settings, thumbnail};
+use crate::{alog, bitmap, settings, thumbnail};
 
 /// End-to-end: stream → archive → first image bytes → decode → resize → HBITMAP.
 ///
@@ -212,7 +212,7 @@ impl ArcThumbProvider_Impl {
         // Clamp to Windows's standard icon range. Explorer's largest
         // bucket is 2560 (Extra Large × high DPI); the lower bound is
         // defensive.
-        let size = clamp_thumbnail_size(cx);
+        let size = thumbnail::clamp_size(cx);
 
         let stream = self.this.stream.borrow().clone().ok_or_else(|| {
             alog!("  no stream attached");
@@ -237,11 +237,6 @@ impl ArcThumbProvider_Impl {
     }
 }
 
-/// Clamp a requested thumbnail size to the allowed range.
-fn clamp_thumbnail_size(cx: u32) -> u32 {
-    cx.clamp(limits::MIN_THUMBNAIL_SIZE, limits::MAX_THUMBNAIL_SIZE)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,49 +252,6 @@ mod tests {
         assert_eq!(extension_of("C:\\my.archives\\comic").as_deref(), None);
         assert_eq!(extension_of("comic").as_deref(), None);
         assert_eq!(extension_of("trailing.").as_deref(), None);
-    }
-
-    #[test]
-    fn clamp_within_range_is_identity() {
-        assert_eq!(clamp_thumbnail_size(64), 64);
-        assert_eq!(clamp_thumbnail_size(256), 256);
-        assert_eq!(
-            clamp_thumbnail_size(limits::MIN_THUMBNAIL_SIZE),
-            limits::MIN_THUMBNAIL_SIZE
-        );
-        assert_eq!(
-            clamp_thumbnail_size(limits::MAX_THUMBNAIL_SIZE),
-            limits::MAX_THUMBNAIL_SIZE
-        );
-    }
-
-    #[test]
-    fn clamp_below_minimum() {
-        assert_eq!(clamp_thumbnail_size(0), limits::MIN_THUMBNAIL_SIZE);
-        assert_eq!(clamp_thumbnail_size(1), limits::MIN_THUMBNAIL_SIZE);
-        assert_eq!(
-            clamp_thumbnail_size(limits::MIN_THUMBNAIL_SIZE - 1),
-            limits::MIN_THUMBNAIL_SIZE
-        );
-    }
-
-    #[test]
-    fn clamp_above_maximum() {
-        assert_eq!(clamp_thumbnail_size(u32::MAX), limits::MAX_THUMBNAIL_SIZE);
-        assert_eq!(
-            clamp_thumbnail_size(limits::MAX_THUMBNAIL_SIZE + 1),
-            limits::MAX_THUMBNAIL_SIZE
-        );
-        assert_eq!(clamp_thumbnail_size(10000), limits::MAX_THUMBNAIL_SIZE);
-    }
-
-    #[test]
-    fn clamp_standard_explorer_sizes() {
-        // Explorer's common thumbnail size buckets.
-        for size in [16, 32, 48, 64, 96, 128, 256, 512, 1024, 2560] {
-            let clamped = clamp_thumbnail_size(size);
-            assert_eq!(clamped, size, "standard size {size} should pass through");
-        }
     }
 
     #[test]

@@ -117,18 +117,17 @@ pub fn render<R: Read + Seek>(
     })
 }
 
-/// Smallest thumbnail side we'll produce. Hosts never ask for less, but
-/// a bogus request shouldn't turn into a zero-sized bitmap.
-pub const MIN_SIZE: u32 = crate::limits::MIN_THUMBNAIL_SIZE;
-
-/// Largest thumbnail side we'll produce. 2560 covers the biggest bucket
-/// either host asks for (Extra Large icons at high DPI on Windows;
-/// Retina grid previews on macOS).
-pub const MAX_SIZE: u32 = crate::limits::MAX_THUMBNAIL_SIZE;
-
-/// Clamp a requested thumbnail dimension into [`MIN_SIZE`]..=[`MAX_SIZE`].
+/// Clamp a requested thumbnail dimension into the supported range.
+///
+/// The bounds live in [`crate::limits`] because they are a resource limit
+/// like every other one there: 2560 is the largest bucket either host asks
+/// for (Extra Large icons at high DPI on Windows, Retina grid previews on
+/// macOS), and the floor stops a bogus request becoming a zero-sized bitmap.
 pub fn clamp_size(px: u32) -> u32 {
-    px.clamp(MIN_SIZE, MAX_SIZE)
+    px.clamp(
+        crate::limits::MIN_THUMBNAIL_SIZE,
+        crate::limits::MAX_THUMBNAIL_SIZE,
+    )
 }
 
 #[cfg(test)]
@@ -250,9 +249,14 @@ mod tests {
 
     #[test]
     fn clamp_size_bounds_requests() {
-        assert_eq!(clamp_size(0), MIN_SIZE);
-        assert_eq!(clamp_size(MIN_SIZE), MIN_SIZE);
+        use crate::limits::{MAX_THUMBNAIL_SIZE, MIN_THUMBNAIL_SIZE};
+        assert_eq!(clamp_size(0), MIN_THUMBNAIL_SIZE);
+        assert_eq!(clamp_size(MIN_THUMBNAIL_SIZE), MIN_THUMBNAIL_SIZE);
         assert_eq!(clamp_size(256), 256);
-        assert_eq!(clamp_size(u32::MAX), MAX_SIZE);
+        assert_eq!(clamp_size(u32::MAX), MAX_THUMBNAIL_SIZE);
+        // Explorer's standard icon buckets must pass through untouched.
+        for size in [16, 32, 48, 64, 96, 128, 256, 512, 1024, 2560] {
+            assert_eq!(clamp_size(size), size, "standard size {size}");
+        }
     }
 }

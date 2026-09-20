@@ -271,8 +271,9 @@ pub unsafe extern "C" fn arc_last_error(buf: *mut c_char, buf_len: u32) -> u32 {
 ///
 /// * `path` — NUL-terminated UTF-8 filesystem path, never null.
 /// * `max_width`, `max_height` — target box in **pixels** (DPI already
-///   applied by the caller). Clamped to [`thumbnail::MIN_SIZE`]..=
-///   [`thumbnail::MAX_SIZE`].
+///   applied by the caller). Clamped to the core's supported range, i.e.
+///   [`arcthumb::limits::MIN_THUMBNAIL_SIZE`]..=
+///   [`arcthumb::limits::MAX_THUMBNAIL_SIZE`].
 /// * `settings` — an [`ArcSettings`], or null for the defaults.
 ///
 /// Returns an owned [`ArcThumbnail`], or null when no thumbnail could be
