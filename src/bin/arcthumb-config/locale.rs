@@ -1,9 +1,10 @@
-//! UI strings for the config GUI, with English + Japanese translations.
+//! UI strings for the config GUI, with English, Japanese + Chinese
+//! translations.
 //!
 //! Selection order:
-//! 1. `--lang en|ja` on the command line (sets `LANGUAGE_OVERRIDE`).
+//! 1. (macOS) `--lang en|ja|zh` on the command line, via `LANGUAGE_OVERRIDE`.
 //! 2. (Windows) `HKCU\Software\ArcThumb\Language` registry override.
-//! 3. OS default locale — starts with `"ja"` → Japanese.
+//! 3. OS default locale, mapped by `table_for`.
 //! 4. English fallback.
 //!
 //! Strings are handed to the Slint UI at startup via `in` properties.
@@ -311,11 +312,7 @@ pub fn current() -> &'static Strings {
     }
 
     // 2. OS default locale, 3. English fallback.
-    if detect_os_locale_is_japanese() {
-        &JA
-    } else {
-        &EN
-    }
+    detect_os_locale().unwrap_or(&EN)
 }
 
 /// Resolve the UI language: `--lang` first, then the OS locale, then English.
@@ -420,6 +417,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn locale_strings_survive_the_macos_rewrite() {
         // The macOS variant replaces a handful of Windows-specific rows and
