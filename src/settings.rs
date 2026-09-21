@@ -840,6 +840,9 @@ mod tests {
             overlay_border: true,
             overlay_label: true,
             log_enabled: true,
+            // Not persisted in the registry (Windows always thumbsnails
+            // every archive type it is bound to), so leave it default.
+            ..Settings::default()
         };
         original
             .save_to_subkey(scratch.path())
