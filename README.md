@@ -1,297 +1,246 @@
-# ArcThumb
+<p align="center">
+  <img src="./assets/readme/hero.svg" width="100%"
+       alt="ArcThumbX — archive and ebook cover thumbnails rendered inside Windows Explorer and macOS Finder. The board shows six cover tiles tagged CBZ, EPUB, CBR, FB2, 7Z and AZW3.">
+</p>
 
-![ArcThumb](assets/thumbnail.jpg)
+<p align="center">
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg" alt="Dual-licensed MIT or Apache-2.0"></a>
+  <a href="https://github.com/HibernalGlow/ArcThumbX/releases"><img src="https://img.shields.io/github/v/release/HibernalGlow/ArcThumbX?label=release&color=green" alt="Latest release"></a>
+  <a href="https://github.com/HibernalGlow/ArcThumbX/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HibernalGlow/ArcThumbX/ci.yml?branch=develop&label=CI" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20%C2%B7%20macOS%2011%2B-lightgrey.svg" alt="Windows 10/11 and macOS 11 and later">
+  <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-3A7CA5.svg" alt="简体中文说明"></a>
+</p>
 
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
-[![Version](https://img.shields.io/github/v/release/citrussoda-com/ArcThumb?label=version&color=green)](https://github.com/citrussoda-com/ArcThumb/releases)
-[![Platform: Windows 10/11 · macOS 11+](https://img.shields.io/badge/platform-Windows%2010%2F11%20%C2%B7%20macOS%2011%2B-lightgrey.svg)](#)
+ArcThumbX puts archive and ebook **covers where the file list is** — as thumbnails in
+Windows Explorer and in macOS Finder. Both front ends are thin shells over one Rust core,
+so a `.cbz` and its `.epub` sibling get the same cover, the same sort rules and the same
+decoders on either platform. It reads comic archives (ZIP, CBZ, RAR, CBR, 7Z, CB7, TAR,
+CBT) and ebooks (EPUB, FB2, MOBI, AZW, AZW3).
 
-Archive cover thumbnails inside the file manager. On Windows it is an Explorer shell extension (`IThumbnailProvider` + a preview pane); on macOS it is a Quick Look thumbnail extension for Finder. Both are thin backends on one shared Rust core, and both read comic book archives (ZIP, CBZ, RAR, CBR, 7Z, CB7, CBT) and ebooks (EPUB, FB2, MOBI, AZW, AZW3).
+This repository is a fork of [citrussoda-com/ArcThumb](https://github.com/citrussoda-com/ArcThumb);
+see [About this fork](#about-this-fork) for what changed.
 
-ArcThumb is inspired by [CBXShell](https://github.com/T800G/CBXShell) and [DarkThumbs](https://github.com/fire-eggs/DarkThumbs), rewritten in Rust with WebP support and Windows 10/11 as the baseline.
+## See it
 
-![Explorer showing ArcThumb-generated thumbnails for comic archives and EPUB files](assets/explorer.png)
+Explorer, thumbnails on, preview pane open (`Alt+P`):
 
-## What it does
+<img src="./assets/explorer.png" width="100%" alt="Windows Explorer showing cover thumbnails for an EPUB, an AZW3, two 7Z archives, a MOBI, three ZIP archives, an FB2, a RAR and a CBT, with the selected EPUB's cover filling the preview pane on the right">
 
-- Shows the first image (or the cover, if one is identifiable) from an archive as the file's thumbnail in Explorer.
-- For ebooks, parses the format-specific metadata so the right cover is picked instead of an arbitrary embedded image. EPUB uses the OPF manifest, FB2 uses the `<coverpage>` reference, and MOBI/AZW/AZW3 use the EXTH 201 CoverOffset record.
-- Implements `IPreviewHandler` so the same cover shows up in Explorer's preview pane (`Alt+P`), rescaled when the splitter moves.
-- Can bake an identification overlay into archive thumbnails — a format-coloured border and a corner label (`CBZ`, `EPUB`, …) — so archives stand out from plain images. Off by default.
-- Provides a small configuration GUI (`arcthumb-config.exe`) for toggling extensions, sort order, cover-name preference, the preview pane, the identification overlay, and the UI language. The macOS extension reads the same options from `UserDefaults`, and JPEG/PNG/WebP/GIF/TIFF/BMP/ICO plus AVIF and JXL are decoded by the shared Rust core on both platforms.
-- Installs per-user under `%LOCALAPPDATA%\Programs\ArcThumb` by default with no admin rights. Run the installer elevated to install machine-wide under `%ProgramFiles%\ArcThumb` instead — required when Explorer runs at high integrity, such as Windows Sandbox.
-- Wraps every COM entry point in `catch_unwind`, so a panic in the decoder cannot crash Explorer or `prevhost.exe`.
+The same folder with the optional identification overlay enabled — a format-coloured border
+plus a corner chip, so an archive cover never passes for a loose image:
 
-## Supported formats
+<img src="./assets/explorer_with_overlay.png" width="100%" alt="The same Explorer folder with overlays on: each thumbnail carries an amber border and chip for ZIP-family archives and a blue one for ebooks, and the preview pane repeats the tag">
 
-### Containers
+## What you get
 
-| Extension | Type | Notes |
-|---|---|---|
-| `.zip`, `.cbz` | ZIP / Comic Book ZIP | |
-| `.rar`, `.cbr` | RAR / Comic Book RAR | |
-| `.7z`, `.cb7`  | 7-Zip / Comic Book 7z | |
-| `.cbt`         | Comic Book TAR | uncompressed tar |
-| `.epub`        | EPUB 2 / EPUB 3 | OPF manifest |
-| `.fb2`         | FictionBook 2 | inline base64 binaries |
-| `.mobi`, `.azw`, `.azw3` | Amazon Kindle | EXTH 201 CoverOffset |
+- **A cover, not a generic icon.** The first image inside the archive becomes the file's
+  thumbnail; `cover.*`, `folder.*`, `thumb.*`, `thumbnail.*` and `front.*` win when present.
+- **Ebook covers found by the format's own rules.** EPUB through its OPF manifest, FB2
+  through `<coverpage>`, MOBI/AZW/AZW3 through the EXTH 201 `CoverOffset` record — so the
+  real cover is picked instead of whatever image happens to sort first.
+- **Preview pane on Windows.** An `IPreviewHandler` shows the same cover at full pane height
+  and rescales when you drag the splitter.
+- **An optional overlay** (off by default): amber frame and chip for archive families, blue
+  for ebooks, with the chip reading `CBZ`, `EPUB`, …
+- **One settings window on both platforms** — per-extension and per-image-format toggles,
+  sort order, cover preference, overlay switches, diagnostic logging, and a
+  Regenerate-thumbnails button. English, 日本語 and 简体中文.
+- **Nothing on disk.** Pixels are handed to the shell in memory; no scratch images are
+  written while thumbnails are generated.
+- **Panic-safe on Windows.** Every COM entry point is wrapped in `catch_unwind`, so a
+  decoder panic cannot take Explorer, `dllhost.exe` or `prevhost.exe` down with it.
 
-### Image formats inside archives
-
-JPEG, PNG, GIF, BMP, TIFF, ICO, WebP, AVIF, and JXL, each individually
-enableable in the configuration GUI. AVIF and JXL do **not** depend on
-whatever the OS happens to support: on Windows they decode through the
-Windows Imaging Component (system codecs — Windows 11 24H2+ includes them,
-Windows 10 needs the [AV1 Image Extensions](https://apps.microsoft.com/detail/9n26s50ln705)
-and/or a JPEG XL extension from the Microsoft Store, i.e. the `wic`
-feature that `cargo build --release` enables by default), while macOS and
-other non-Windows builds statically link libavif + dav1d and `jxl-oxide`
-into the extension instead. HEIC and SVG are not supported yet.
-
-## Installing
+## Quick start
 
 ### Windows
 
-Download `ArcThumb-Setup.exe` from [Releases](https://github.com/citrussoda-com/ArcThumb/releases) and run it. By default the installer is per-user, so Windows will not prompt for admin rights. Right-click the installer and choose **Run as administrator** (or accept the UAC dialog) to install machine-wide instead — required when Explorer runs at high integrity, such as Windows Sandbox or some enterprise lockdowns. New files get thumbnails immediately. The preview pane is enabled by default; press `Alt+P` in Explorer to open it.
+Releases ship a portable zip — no installer, no admin rights.
 
-To uninstall, use **Settings → Apps → Installed apps**, find `ArcThumb`, and remove it. Both files and registry entries are cleaned up.
-
-### macOS
-
-Download `ArcThumb-<version>-macOS.zip` from [Releases](https://github.com/citrussoda-com/ArcThumb/releases), unzip it into `/Applications` or `~/Applications`, then register it. Release builds are ad-hoc signed, so the first launch needs a right-click → **Open** (or `xattr -dr com.apple.quarantine ArcThumb.app`).
-
-To build and install from this repository instead (`--install` performs both the Launch Services and Pluginkit steps Finder needs):
-
-```sh
-brew install cmake meson ninja     # to compile the bundled AVIF decoder
-./macos/build-appex.sh --release --install
+```powershell
+# 1. Extract ArcThumb-<version>-portable-x64.zip somewhere permanent,
+#    e.g. %LOCALAPPDATA%\Programs\ArcThumb
+# 2. Register the shell extension (writes to HKCU):
+arcthumb-config.exe --install
 ```
 
-Then enable it under **System Settings → Privacy & Security → Extensions → Thumbnailing Extensions** (or `pluginkit -e use -i com.citrussoda.ArcThumb.thumbnail`) and clear any cached icons with `qlmanage -r cache`. Full instructions, settings keys and troubleshooting are in [macos/README.md](macos/README.md).
-
-## Configuration
-
-Open **ArcThumb Configuration** from the Start menu. On macOS the same window is **ArcThumb.app** itself — it reads and writes the extension's settings file, and `--lang en|ja|zh` overrides the language (the OS locale decides otherwise).
-
-![ArcThumb Configuration dialog with extension toggles, sort order, cover preference and the Regenerate thumbnails button](assets/screenshot.png)
-
-- **Enabled extensions** turns the thumbnail provider on or off per file extension.
-- **Image formats used for thumbnails** chooses which image formats (JPEG, PNG, GIF, BMP, TIFF, WebP, ICO) are eligible when picking a thumbnail from inside an archive. Disabling a format causes ArcThumb to skip files with that extension. This setting does not affect ebooks (EPUB, FB2, MOBI), which use their own metadata to locate the cover.
-- **Sort order** decides which image counts as "the first one" inside an archive. Natural sort treats `page2.jpg` as smaller than `page10.jpg`. Alphabetical does the opposite. Natural is the default and is usually what you want for comics.
-- **Cover image** controls how ArcThumb treats files named `cover.*`, `folder.*`, `thumb.*`, `thumbnail.*`, or `front.*` (matched without regard to case). *Use cover if present, else first page* is the default: it picks one of those names when the archive has one and otherwise falls back to sort order. *Cover only* uses one of those names and shows no thumbnail at all when none exists, so an unrelated ZIP that happens to contain a stray image keeps the plain archive icon instead of borrowing it as a cover. *Always use first page* ignores the names and takes the first image by sort order.
-- **Enable preview pane** is a single switch that registers or unregisters the `IPreviewHandler` for every supported extension at once.
-- **Mark archives with a coloured border** draws a frame around the thumbnail, coloured by format family (one colour for compressed archives, another for ebooks). It makes an archive cover easy to tell apart from a plain image.
-- **Mark archives with a format label** bakes a small `CBZ` / `EPUB` / … tag into the bottom-right corner. The label uses the file's extension when ArcThumb can read it and otherwise falls back to the detected format, so a `.cbz` reads "CBZ" but a renamed archive still gets a sensible tag. The label is dropped on very small icons where it would be unreadable; the border stays.
-- **Language** is English or Japanese. The first run picks one based on `GetUserDefaultLocaleName`; afterwards it lives in `HKCU\Software\ArcThumb\Language`.
-
-Both overlay options are off by default. The plain cover thumbnails shown at the top of this page are what you get out of the box; turning the overlay on changes how every archive thumbnail looks:
-
-![The same Explorer folder with the identification overlay enabled: each archive has a format-coloured border and a corner label such as ZIP, RAR, or EPUB](assets/explorer_with_overlay.png)
-
-Because Explorer caches the rendered bitmap, a new overlay setting only takes effect once the cached thumbnails are rebuilt. Use **Regenerate thumbnails** after changing either toggle.
-
-Apply takes effect immediately. There is no service to restart.
-
-## Building from source
-
-You need a stable Rust toolchain (2024 edition) and the *Desktop development with C++* workload from Visual Studio Build Tools. To build the installer you also need [Inno Setup 6](https://jrsoftware.org/isinfo.php).
-
-```sh
-git clone https://github.com/citrussoda-com/ArcThumb.git
-cd ArcThumb
-
-cargo build --release                          # DLL + config GUI
-
-target\release\arcthumb-config.exe --install   # register (HKLM if elevated, otherwise HKCU)
-target\release\arcthumb-config.exe --uninstall # undo (cleans both hives best-effort)
-
-iscc installer\arcthumb.iss                    # build the installer
-# output: target\installer\ArcThumb-Setup.exe
-```
+New thumbnails appear immediately; press `Alt+P` for the preview pane. Run the same command
+**as administrator** to register machine-wide under `HKLM` instead — needed when Explorer
+runs at high integrity, e.g. Windows Sandbox. To remove: `arcthumb-config.exe --uninstall`
+(cleans both hives), then delete the folder.
 
 ### macOS
 
 ```sh
-cargo test                                              # shared core
-cargo test --manifest-path macos/arcthumb-ffi/Cargo.toml # through the C ABI
-./macos/build-appex.sh --release                        # .app + .appex in macos/build/
-./macos/build-appex.sh --release --universal            # arm64 + x86_64
+# 1. Unzip ArcThumb-<version>-macOS-arm64.zip into /Applications or ~/Applications
+# 2. Release builds are ad-hoc signed, so clear quarantine once:
+xattr -dr com.apple.quarantine ~/Applications/ArcThumb.app
+# 3. Let Finder use the extension:
+pluginkit -e use -i com.citrussoda.ArcThumb.thumbnail
+qlmanage -r cache
 ```
 
-The default Cargo features (`wic`, `config-gui`) are Windows-only backends; on
-other targets they resolve to nothing, so no flag juggling is needed.
+You can toggle the same setting under **System Settings → Privacy & Security → Extensions →
+Thumbnailing Extensions**. Intel Macs get a separate `…-macOS-x86_64.zip`; the two slices are
+built on their own architecture rather than lipo'd, because the bundled AVIF decoder has no
+macOS cross-compile configuration. The x86_64 leg has not been verified on real Intel
+hardware yet — [macos/README.md](./macos/README.md) says so plainly.
 
-### Reinstalling after a DLL change
+Prefer building it yourself? `./macos/build-appex.sh --release --install` compiles and
+registers in one step — details in [macos/README.md](./macos/README.md).
 
-`arcthumb.dll` runs inside `explorer.exe`, the `dllhost.exe` COM
-Surrogate, and (when the preview pane is open) `prevhost.exe`. While
-any of those have it loaded, Windows refuses to overwrite the file
-and the installer falls back to "queue for next reboot". The COM
-Surrogate is the easiest one to forget — it can stay resident for
-several minutes after the last thumbnail request.
+## How it is put together
 
-The reliable way to refresh both binaries during local development:
+<img src="./assets/readme/architecture.svg" width="100%"
+     alt="System map: the shared Rust core (src/archive, src/ebook, src/decode, src/overlay, joined in src/thumbnail.rs) feeds two thin backends — a Windows COM backend that hands pixels over as an HBITMAP, and a macOS Quick Look backend that goes through a six-function C ABI and a CGImage.">
 
-```powershell
-# 1. Build the new DLL + config GUI, then re-bundle the installer.
-#    Skip step (b) and you'll be running an installer that contains
-#    the previous build's exe.
-cargo build --release                                        # (a)
-iscc installer\arcthumb.iss                                  # (b)
-
-# 2. Release every host process that holds the old DLL.
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-Stop-Process -Name dllhost  -Force -ErrorAction SilentlyContinue
-Stop-Process -Name prevhost -Force -ErrorAction SilentlyContinue
-
-# 3. Run the freshly built installer. Same AppId, so it upgrades
-#    the existing install in place. Tick "Launch ArcThumb
-#    Configuration" on the Finish page.
-.\target\installer\ArcThumb-Setup.exe
-
-# 4. Bring Explorer back if the installer didn't already.
-Start-Process explorer
-```
-
-If steps 1-4 still leave you with the old GUI or "file in use" errors,
-the install state is wedged. To recover:
-
-```powershell
-# Kill the host processes again, then nuke the install dir by hand.
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-Stop-Process -Name dllhost  -Force -ErrorAction SilentlyContinue
-Stop-Process -Name prevhost -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "$env:LOCALAPPDATA\Programs\ArcThumb" -Recurse -Force -ErrorAction SilentlyContinue
-
-# Belt-and-braces registry cleanup (the uninstaller normally handles
-# this, but if it errored mid-run there can be leftovers).
-Remove-Item -Path "HKCU:\Software\Classes\CLSID\{0F4F5659-D383-4945-A534-01E1EED1D23F}" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "HKCU:\Software\Classes\CLSID\{8C7C1E5F-3D4A-4E2B-9F1A-7B5D6E8F9A0C}" -Recurse -Force -ErrorAction SilentlyContinue
-
-Start-Process explorer
-.\target\installer\ArcThumb-Setup.exe
-```
-
-If even that fails, **sign out and back in** — that guarantees every
-per-user `dllhost.exe` (and any other stragglers) is torn down.
-
-### Tests
-
-```sh
-cargo test
-cargo llvm-cov --summary-only
-```
-
-### Testing the update / donation dialogs
-
-The config GUI checks for updates on startup and shows a donation prompt after a version upgrade. The environment variable `ARCTHUMB_FAKE_VERSION` overrides the compiled-in version at runtime, so you can test both dialogs without rebuilding.
-
-```powershell
-# --- Update notification dialog ---
-# Pretend the running build is v0.0.1 so the latest GitHub release
-# (v0.2.0) looks like a new version.
-$env:ARCTHUMB_FAKE_VERSION = "0.0.1"
-Remove-ItemProperty -Path 'HKCU:\Software\ArcThumb' -Name 'LastUpdateCheck' -ErrorAction SilentlyContinue
-Remove-ItemProperty -Path 'HKCU:\Software\ArcThumb' -Name 'SkippedVersion' -ErrorAction SilentlyContinue
-target\release\arcthumb-config.exe
-
-# --- Donation prompt dialog ---
-# Set LastSeenVersion older than the current build so the app thinks
-# the user just upgraded.
-Remove-Item Env:\ARCTHUMB_FAKE_VERSION -ErrorAction SilentlyContinue
-Set-ItemProperty -Path 'HKCU:\Software\ArcThumb' -Name 'LastSeenVersion' -Value '0.1.0' -Type String
-Set-ItemProperty -Path 'HKCU:\Software\ArcThumb' -Name 'DonationDismissed' -Value 0 -Type DWord
-Set-ItemProperty -Path 'HKCU:\Software\ArcThumb' -Name 'DonationSkipCount' -Value 0 -Type DWord
-target\release\arcthumb-config.exe
-```
-
-To disable the update check entirely:
-
-```powershell
-Set-ItemProperty -Path 'HKCU:\Software\ArcThumb' -Name 'UpdateCheckEnabled' -Value 0 -Type DWord
-```
-
-### Regenerating the icon
-
-If you change `assets/icon.png`, run `cargo run --example make_icon` to rebuild the multi-resolution `assets/icon.ico` that gets embedded into the DLL and the config exe.
-
-## Troubleshooting
-
-### Thumbnails don't update after installing
-
-Windows caches thumbnails in `thumbcache_*.db`, including the "this file has no thumbnail" answer. If you opened a comic file before installing ArcThumb, the cached negative result will keep showing instead of the new thumbnail. The easiest fix is the **Regenerate thumbnails** button in the configuration GUI (Start menu → ArcThumb Configuration). It does the equivalent of:
-
-```powershell
-Stop-Process -Name explorer -Force
-Stop-Process -Name dllhost  -Force -ErrorAction SilentlyContinue
-Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\thumbcache_*.db" -Force -ErrorAction SilentlyContinue
-Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\iconcache_*.db" -Force -ErrorAction SilentlyContinue
-Start-Process explorer
-```
-
-You only need to do this once after the first install. New files are not affected.
-
-### The preview pane is empty
-
-Check that **Enable preview pane** is on in the config GUI, and that Explorer's preview pane is actually visible (`Alt+P` or **View → Preview pane**). If both are on and the pane is still empty, kill `prevhost.exe` from Task Manager and reselect the file. The surrogate process sometimes holds onto a stale handler.
-
-### Debug logging
-
-Set `ARCTHUMB_LOG=1` in your user environment and ArcThumb writes a trace to `%TEMP%\arcthumb.log`:
-
-```powershell
-[System.Environment]::SetEnvironmentVariable("ARCTHUMB_LOG", "1", "User")
-# Restart Explorer, then:
-Get-Content "$env:TEMP\arcthumb.log"
-```
-
-## How it's put together
-
-The platform-independent work — reading containers, picking the cover,
-decoding images (including AVIF and JXL), resizing, drawing the overlay —
-lives in the Rust core (`src/archive`, `src/decode`, `src/ebook`,
-`src/overlay`, joined in `src/thumbnail.rs`, which returns an RGBA bitmap).
-Each platform adds only what a file manager demands:
+Everything platform-neutral lives in the core: container readers, ebook cover locators, image
+decoding (including AVIF and JXL), resizing and overlay drawing. `src/thumbnail.rs` joins them
+and returns one RGBA bitmap. Each backend adds only what its file manager demands:
 
 | Platform | Backend | Pixel hand-off |
 |---|---|---|
-| Windows | `IThumbnailProvider` + `IPreviewHandler` COM classes, registered per-extension in the registry | `RgbaImage` → premultiplied BGRA DIB section (`HBITMAP`) |
-| macOS | `QLThumbnailProvider` app extension, matched by UTI (`macos/`) | `RgbaImage` → premultiplied RGBA8 → `CGDataProvider` → `CGImage`, over a six-function C ABI (`macos/arcthumb-ffi`) |
+| Windows | two COM classes in one DLL: `IThumbnailProvider` + `IPreviewHandler`, bound per extension in the registry | `RgbaImage` → premultiplied BGRA DIB section (`HBITMAP`) |
+| macOS | `QLThumbnailProvider` app extension matched by UTI (`macos/`), plus the settings window | `RgbaImage` → premultiplied RGBA8 → `CGDataProvider` → `CGImage`, over a six-function C ABI (`macos/arcthumb-ffi`) |
 
-Neither backend re-implements archive or image logic, and no image bytes
-ever go to disk on either platform. See
-[docs/WIC_IMPLEMENTATION.md](docs/WIC_IMPLEMENTATION.md) and
-[docs/MACOS_IMPLEMENTATION.md](docs/MACOS_IMPLEMENTATION.md) for the
-per-platform details.
+Neither backend re-implements archive or image logic. On Windows both CLSIDs register under
+`HKCU` by default, so installing and removing ArcThumbX never touches the machine-wide
+registry; elevated installs switch to `HKLM`. Deeper dives:
+[docs/WIC_IMPLEMENTATION.md](./docs/WIC_IMPLEMENTATION.md) and
+[docs/MACOS_IMPLEMENTATION.md](./docs/MACOS_IMPLEMENTATION.md).
 
-On Windows, ArcThumb ships two COM classes inside one DLL:
+## Supported formats
 
-| Class | CLSID | Purpose |
+<img src="./assets/readme/formats.svg" width="100%"
+     alt="Format board: four archive containers (ZIP/CBZ, RAR/CBR, 7Z/CB7, TAR/CBT) tagged amber, three ebook formats (EPUB, FB2, MOBI/AZW/AZW3) tagged blue with the metadata each uses to locate its cover, a dashed cell for HEIC, SVG and DjVu which are not supported yet, and two codec cards contrasting Windows' WIC path with the statically linked libavif, dav1d and jxl-oxide used on macOS.">
+
+The core opens 13 container extensions:
+
+| Extension | Family | How the cover is chosen |
 |---|---|---|
-| `ArcThumbProvider` | `{0F4F5659-...}` | `IThumbnailProvider`, hosted in Explorer |
-| `ArcThumbPreviewHandler` | `{8C7C1E5F-...}` | `IPreviewHandler`, hosted in `prevhost.exe` |
+| `.zip` `.cbz` `.rar` `.cbr` `.7z` `.cb7` `.tar` `.cbt` | archives | first eligible image by sort order, cover-named files preferred |
+| `.epub` | EPUB 2 / 3 | OPF manifest cover reference |
+| `.fb2` | FictionBook 2 | `<coverpage>` reference, inline base64 image |
+| `.mobi` `.azw` `.azw3` | Kindle | EXTH 201 `CoverOffset` record |
 
-By default both register under `HKCU`, so installing and removing ArcThumb never touches the machine-wide registry. Running the installer elevated registers under `HKLM` instead, which is required when Explorer runs at high integrity (Windows Sandbox, some enterprise lockdowns) because that Explorer ignores HKCU CLSIDs by Microsoft's COM-hijacking defence. Uninstall best-effort cleans both hives.
+Windows registers ShellEx bindings for 12 of them (bare `.tar` is not bound, `.cbt` is); the
+macOS extension declares all 13 through UTIs.
 
-The Inno Setup installer does not write any CLSID keys directly. It runs `arcthumb-config.exe --install` after copying the files, and `--uninstall` before removing them. This keeps the installer ignorant of the COM details and lets developers re-register a fresh build with one CLI command.
+Images inside those containers: `.jpg` `.jpeg` `.png` `.gif` `.bmp` `.tiff` `.tif` `.ico`
+`.webp` decode in pure Rust everywhere. `.avif` and `.jxl` depend on the platform:
 
-## Known limitations
+- **Windows** — the default `wic` feature decodes them through the Windows Imaging Component,
+  i.e. the system codecs. Windows 11 24H2+ generally has AVIF built in; Windows 10 needs the
+  [AV1 Image Extensions](https://apps.microsoft.com/detail/9n26s50ln705) and/or a JPEG XL
+  extension from the Microsoft Store. Build with `--no-default-features` to ship without them.
+- **macOS and other targets** — libavif + dav1d and `jxl-oxide` are statically linked into the
+  extension, so no system codec and no user setup is involved.
 
-- HEIC, SVG, and DjVu are not supported.
-- On macOS the Quick Look extension covers thumbnails only; the preview pane and the configuration GUI are Windows-only for now. Wide-gamut AVIF/JXL covers are also not ICC-transformed yet — see [docs/MACOS_IMPLEMENTATION.md](docs/MACOS_IMPLEMENTATION.md).
-- Animated GIF and animated WebP show only the first frame.
-- Encrypted archives are not supported.
-- Very large archives are skipped by safety limits: ZIP and 7z handle files of any practical size, TAR and RAR are capped at 2 GiB, and image decoding stops at 512 MiB to defend against decompression bombs.
-- The preview pane shows the cover image only. There is no multi-image gallery view.
+## Settings
+
+Open **ArcThumb Configuration** from the Start menu. On macOS the identical window is
+**ArcThumb.app** — the same Slint UI, reading and writing the extension's settings file.
+
+<img src="./assets/screenshot.png" width="420" alt="The ArcThumb Configuration window: extension checkboxes, image format checkboxes, a sort-order dropdown, cover preference, preview pane, the two overlay switches and a Regenerate thumbnails button">
+
+- **Enabled extensions** — turn the thumbnail provider on or off per file extension.
+- **Image formats used for thumbnails** — which formats are eligible as a thumbnail source
+  inside an archive. Ebooks are unaffected: they use their own metadata.
+- **Sort order** — what counts as "first". Natural sort treats `page2.jpg` as smaller than
+  `page10.jpg` and is the default; alphabetical is the opposite.
+- **Cover image** — *Use cover if present, else first page* (default), *Cover only* (no
+  thumbnail at all when the archive has no cover-named image, so an unrelated ZIP keeps the
+  plain archive icon), or *Always use first page*.
+- **Enable preview pane** — one switch that registers or unregisters the `IPreviewHandler`
+  for every supported extension. Shown disabled on macOS, where Finder has no equivalent yet.
+- **Coloured border / format label** — the two overlay switches. The label uses the file's
+  extension when readable and otherwise the detected format, and is dropped on icons too
+  small to render it; the border stays.
+- **Enable diagnostic logging** — writes a trace to `arcthumb.log` in the system temp
+  directory (`%TEMP%` on Windows, `$TMPDIR` on macOS). Also toggleable with
+  `arcthumb-config --log-on` / `--log-off`.
+- **Language** — English, 日本語, 简体中文. Windows picks from `GetUserDefaultLocaleName` on
+  first run and keeps the choice in `HKCU\Software\ArcThumb\Language`; on macOS pass
+  `--lang en|ja|zh` to `ArcThumb.app`.
+- **Regenerate thumbnails** — clears Explorer's thumbnail and icon caches on Windows, and runs
+  `qlmanage -r cache` on macOS.
+
+Overlay changes need that button: the shell caches the rendered bitmap, so a previously
+generated thumbnail keeps its old look until the cache is rebuilt.
+
+## Known limits
+
+- HEIC, SVG and DjVu are not supported, and encrypted archives are not opened.
+- Animated GIF and animated WebP show their first frame only.
+- On macOS there is no preview pane — Quick Look thumbnails only — and wide-gamut AVIF/JXL
+  covers are not ICC-transformed yet ([details](./docs/MACOS_IMPLEMENTATION.md)).
+- Safety limits skip oversized input: ZIP and 7z scale to any practical size, TAR and RAR are
+  capped at 2 GiB, and image decoding stops at 512 MiB against decompression bombs.
+- The Windows preview pane shows the cover image only; there is no multi-page gallery.
+
+## Build from source
+
+```sh
+cargo build --release        # Windows: arcthumb.dll + arcthumb-config.exe
+cargo test                   # shared core; add --no-default-features to check the lean build
+./macos/build-appex.sh --release --install   # macOS: .app + .appex, then register
+```
+
+You need a stable Rust toolchain (2024 edition); on Windows also the *Desktop development with
+C++* workload from Visual Studio Build Tools, and `brew install cmake meson ninja` on macOS to
+compile the bundled AVIF decoder. Reinstalling a fresh DLL, building the Inno Setup installer,
+the update/donation dialog test hooks and icon regeneration are covered in
+[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md).
+
+## Troubleshooting
+
+**Thumbnails did not appear after installing.** The shell caches "this file has no thumbnail"
+too, so files you opened before installing keep the old icon. Press **Regenerate thumbnails**
+in the settings window. New files are unaffected, and you only need this once.
+
+**The preview pane is empty.** Check that **Enable preview pane** is on and the pane is visible
+(`Alt+P` or **View → Preview pane**). If both hold, kill `prevhost.exe` in Task Manager and
+reselect the file — the surrogate sometimes keeps a stale handler.
+
+**Something looks wrong and you want proof.** Turn on diagnostic logging, restart Explorer (or
+let Finder recycle the extension), then read `arcthumb.log` in the system temp directory.
+
+## About this fork
+
+[ArcThumbX](https://github.com/HibernalGlow/ArcThumbX) continues
+[citrussoda-com/ArcThumb](https://github.com/citrussoda-com/ArcThumb), a Windows-only shell
+extension, and keeps merging upstream. What this fork adds:
+
+- **macOS support** — a `QLThumbnailProvider` app extension plus a Swift shim over a
+  six-function C ABI (`macos/`, `macos/arcthumb-ffi`), built and signed per architecture in CI.
+- **A platform-neutral core** — container, cover-selection, decode, resize and overlay logic
+  split out of the Windows backend into `src/thumbnail.rs`, so neither platform re-implements it.
+- **AVIF/JXL through WIC on Windows** — the `wic` feature replaces the pure-Rust JXL path with
+  the system's imaging codecs ([implementation notes](./docs/WIC_IMPLEMENTATION.md)).
+- **The settings window on macOS**, driving the sandboxed extension through a plain
+  `key = value` file in its container rather than the registry.
+- **简体中文 UI strings** alongside the existing English and Japanese, and a
+  `--log-on` / `--log-off` diagnostic logging switch on both platforms.
 
 ## License
 
-Dual-licensed under your choice of [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
+Dual-licensed under your choice of [MIT](./LICENSE-MIT) or [Apache 2.0](./LICENSE-APACHE).
 
-Third-party components redistributed with `arcthumb-config.exe` are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). In particular, the configuration GUI uses [Slint](https://slint.dev/) under the Slint Royalty-Free License 2.0; attribution is shown via the **About** button inside the settings window.
+Third-party components redistributed with `arcthumb-config` are listed in
+[THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md). The settings window uses
+[Slint](https://slint.dev/) under the Slint Royalty-Free License 2.0, attributed via the
+**About** button.
 
 ## Credits
 
-The idea comes from [CBXShell](https://github.com/T800G/CBXShell) by T800 Productions and [DarkThumbs](https://github.com/fire-eggs/DarkThumbs) (originally by kaioa, now maintained by fire-eggs). The implementation uses [windows-rs](https://github.com/microsoft/windows-rs) for COM, [image](https://github.com/image-rs/image) for decoding, [zip](https://github.com/zip-rs/zip2) / [unrar](https://github.com/muja/unrar.rs) / [sevenz-rust](https://crates.io/crates/sevenz-rust) / [tar](https://github.com/alexcrichton/tar-rs) for archives, and [Slint](https://slint.dev/) for the configuration dialog.
+The idea comes from [CBXShell](https://github.com/T800G/CBXShell) by T800 Productions and
+[DarkThumbs](https://github.com/fire-eggs/DarkThumbs) (originally by kaioa, now maintained by
+fire-eggs); the Windows codebase from [ArcThumb](https://github.com/citrussoda-com/ArcThumb).
+Implementation uses [windows-rs](https://github.com/microsoft/windows-rs) for COM,
+[image](https://github.com/image-rs/image) for decoding,
+[zip](https://github.com/zip-rs/zip2) / [unrar](https://github.com/muja/unrar.rs) /
+[sevenz-rust](https://crates.io/crates/sevenz-rust) /
+[tar](https://github.com/alexcrichton/tar-rs) for archives,
+[jxl-oxide](https://crates.io/crates/jxl-oxide) and libavif/dav1d for modern codecs, and
+[Slint](https://slint.dev/) for the settings dialog.
 
-Bug reports and feature requests go to [GitHub Issues](https://github.com/citrussoda-com/ArcThumb/issues).
+Bug reports and feature requests: [GitHub Issues](https://github.com/HibernalGlow/ArcThumbX/issues).

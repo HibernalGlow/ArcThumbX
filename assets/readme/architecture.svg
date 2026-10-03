@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520"
+     role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">One shared Rust core, two thin shell backends</title>
+  <desc id="arch-desc">System map. The Rust core on the left reads containers, locates ebook covers,
+    decodes images including AVIF and JXL, draws the optional overlay and returns one RGBA bitmap.
+    Two thin backends consume it: Windows registers two COM classes in one DLL and hands pixels over as
+    an HBITMAP; macOS wraps the same core in a Quick Look thumbnail extension through a six-function C
+    ABI and a CGImage. Neither backend re-implements archive or image logic.</desc>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+    <rect width="1200" height="520" rx="26" fill="#101318"/>
+
+    <!-- column headers -->
+    <text x="56" y="52" font-size="26" font-weight="700" fill="#EDF1F6">One shared Rust core</text>
+    <text x="56" y="82" font-size="20" fill="#A9B3C0">一套内核，容器、封面、解码、叠加全在这里</text>
+    <text x="640" y="52" font-size="26" font-weight="700" fill="#EDF1F6">Two thin backends</text>
+    <text x="640" y="82" font-size="20" fill="#A9B3C0">两层薄后端，只做文件管理器要求的事</text>
+
+    <!-- core panel -->
+    <g id="core">
+      <rect x="56" y="108" width="544" height="350" rx="18" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+
+      <g transform="translate(76 126)">
+        <rect width="504" height="52" rx="12" fill="#1B212A"/>
+        <text x="18" y="24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19" fill="#F0C346">src/archive</text>
+        <text x="18" y="45" font-size="18" fill="#96A1B0">容器读取 · ZIP / RAR / 7Z / TAR</text>
+      </g>
+      <g transform="translate(76 190)">
+        <rect width="504" height="52" rx="12" fill="#1B212A"/>
+        <text x="18" y="24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19" fill="#F0C346">src/ebook</text>
+        <text x="18" y="45" font-size="18" fill="#96A1B0">封面定位 · OPF / coverpage / EXTH 201</text>
+      </g>
+      <g transform="translate(76 254)">
+        <rect width="504" height="52" rx="12" fill="#1B212A"/>
+        <text x="18" y="24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19" fill="#F0C346">src/decode</text>
+        <text x="18" y="45" font-size="18" fill="#96A1B0">图像解码 · JPEG → WebP, AVIF, JXL</text>
+      </g>
+      <g transform="translate(76 318)">
+        <rect width="504" height="52" rx="12" fill="#1B212A"/>
+        <text x="18" y="24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19" fill="#F0C346">src/overlay</text>
+        <text x="18" y="45" font-size="18" fill="#96A1B0">可选叠加 · 边框 + 格式角标</text>
+      </g>
+      <g transform="translate(76 382)">
+        <rect width="504" height="52" rx="12" fill="#20242C" stroke="#F0C346" stroke-width="2"/>
+        <text x="18" y="24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19" fill="#F0C346">src/thumbnail.rs</text>
+        <text x="18" y="45" font-size="18" fill="#B6C0CD">统一出口 · one RGBA bitmap out</text>
+      </g>
+    </g>
+
+    <!-- flow branches -->
+    <g stroke="#46515F" stroke-width="2.5" fill="none">
+      <path d="M600 283 H620 V192 H634"/>
+      <path d="M600 283 H620 V374 H634"/>
+    </g>
+    <path d="M634 186 l12 6 -12 6 z" fill="#46515F"/>
+    <path d="M634 368 l12 6 -12 6 z" fill="#46515F"/>
+
+    <!-- windows backend -->
+    <g id="windows">
+      <rect x="640" y="108" width="504" height="168" rx="18" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <text x="662" y="142" font-size="22" font-weight="700" fill="#EDF1F6">Windows · Explorer 资源管理器</text>
+      <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="#B6C0CD">
+        <text x="662" y="174">IThumbnailProvider → HBITMAP (BGRA)</text>
+        <text x="662" y="200">IPreviewHandler → preview pane (Alt+P)</text>
+        <text x="662" y="226">2 COM classes · 1 DLL · catch_unwind</text>
+      </g>
+      <text x="662" y="254" font-size="18" fill="#7C879A">缩略图 + 预览窗格 + 设置窗口</text>
+    </g>
+
+    <!-- macos backend -->
+    <g id="macos">
+      <rect x="640" y="290" width="504" height="168" rx="18" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <text x="662" y="324" font-size="22" font-weight="700" fill="#EDF1F6">macOS · Finder 访达</text>
+      <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="#B6C0CD">
+        <text x="662" y="356">QLThumbnailProvider (Swift)</text>
+        <text x="662" y="382">arc_thumbnail_generate — 6-fn C ABI</text>
+        <text x="662" y="408">RGBA8 → CGImage → QLThumbnailReply</text>
+      </g>
+      <text x="662" y="436" font-size="18" fill="#7C879A">缩略图 + 设置窗口 · 暂无预览面板</text>
+    </g>
+
+    <text x="56" y="496" font-size="19" fill="#8A94A3">Pixels are copied once, never written to disk · 像素只复制一次，全程不落盘</text>
+  </g>
+</svg>

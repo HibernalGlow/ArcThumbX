@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420"
+     role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">ArcThumbX</title>
+  <desc id="hero-desc">Bilingual title board. ArcThumbX shows archive and ebook covers as real
+    thumbnails inside Windows Explorer and macOS Finder. On the right, six cover tiles are drawn the
+    way the product draws them: a format-coloured frame (amber for archives, blue for ebooks) with a
+    corner chip reading CBZ, EPUB, CBR, FB2, 7Z or AZW3.</desc>
+
+  <defs>
+    <linearGradient id="cover" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#222933"/>
+      <stop offset="1" stop-color="#161A21"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="420" rx="26" fill="#101318"/>
+  <line x1="662" y1="40" x2="662" y2="380" stroke="#232A34" stroke-width="2"/>
+
+  <g id="title-block" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+    <text x="56" y="74" fill="#8A94A3" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="18" letter-spacing="3">RUST CORE · TWO SHELL BACKENDS</text>
+
+    <text x="56" y="158" font-size="82" font-weight="700" fill="#EDF1F6" letter-spacing="-1">ArcThumb<tspan fill="#F0C346">X</tspan></text>
+
+    <text x="56" y="206" font-size="27" fill="#DCE3EC">Archive and ebook covers as real thumbnails,</text>
+    <text x="56" y="240" font-size="27" fill="#DCE3EC">shown inside your file manager.</text>
+
+    <text x="56" y="288" font-size="24" fill="#A9B3C0">压缩包与电子书封面，直接显示在文件管理器里。</text>
+
+    <text x="56" y="340" fill="#8A94A3" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="18">Windows 10/11 · macOS 11+ · v0.12.0</text>
+    <text x="56" y="370" fill="#6F7A89" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="18">MIT OR Apache-2.0</text>
+  </g>
+
+  <g id="proof-tiles">
+    <g transform="translate(696 28)">
+      <rect width="140" height="176" rx="12" fill="url(#cover)"/>
+      <rect x="16" y="20" width="52" height="96" rx="6" fill="#2C3542"/>
+      <rect x="74" y="20" width="50" height="44" rx="6" fill="#2C3542"/>
+      <rect x="74" y="70" width="50" height="46" rx="6" fill="#28303C"/>
+      <rect x="16" y="124" width="66" height="10" rx="5" fill="#39414E"/>
+      <rect x="16" y="142" width="90" height="10" rx="5" fill="#2E3541"/>
+      <rect x="2" y="2" width="136" height="172" rx="10" fill="none" stroke="#F0C346" stroke-width="4"/>
+      <rect x="70" y="136" width="58" height="28" rx="8" fill="#F0C346"/>
+      <text x="99" y="156" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+            font-size="18" font-weight="700" fill="#101318">CBZ</text>
+    </g>
+    <g transform="translate(848 28)">
+      <rect width="140" height="176" rx="12" fill="url(#cover)"/>
+      <rect x="16" y="20" width="52" height="96" rx="6" fill="#2C3542"/>
+      <rect x="74" y="20" width="50" height="44" rx="6" fill="#2C3542"/>
+      <rect x="74" y="70" width="50" height="46" rx="6" fill="#28303C"/>
+      <rect x="16" y="124" width="66" height="10" rx="5" fill="#39414E"/>
+      <rect x="16" y="142" width="90" height="10" rx="5" fill="#2E3541"/>
+      <rect x="2" y="2" width="136" height="172" rx="10" fill="none" stroke="#3A7CA5" stroke-width="4"/>
+      <rect x="70" y="136" width="58" height="28" rx="8" fill="#3A7CA5"/>
+      <text x="99" y="156" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+            font-size="18" font-weight="700" fill="#FFFFFF">EPUB</text>
+    </g>
+    <g transform="translate(1000 28)">
+      <rect width="140" height="176" rx="12" fill="url(#cover)"/>
+      <rect x="16" y="20" width="52" height="96" rx="6" fill="#2C3542"/>
+      <rect x="74" y="20" width="50" height="44" rx="6" fill="#2C3542"/>
+      <rect x="74" y="70" width="50" height="46" rx="6" fill="#28303C"/>
+      <rect x="16" y="124" width="66" height="10" rx="5" fill="#39414E"/>
+      <rect x="16" y="142" width="90" height="10" rx="5" fill="#2E3541"/>
+      <rect x="2" y="2" width="136" height="172" rx="10" fill="none" stroke="#F0C346" stroke-width="4"/>
+      <rect x="70" y="136" width="58" height="28" rx="8" fill="#F0C346"/>
+      <text x="99" y="156" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+            font-size="18" font-weight="700" fill="#101318">CBR</text>
+    </g>
+    <g transform="translate(696 220)">
+      <rect width="140" height="176" rx="12" fill="url(#cover)"/>
+      <rect x="16" y="20" width="52" height="96" rx="6" fill="#2C3542"/>
+      <rect x="74" y="20" width="50" height="44" rx="6" fill="#2C3542"/>
+      <rect x="74" y="70" width="50" height="46" rx="6" fill="#28303C"/>
+      <rect x="16" y="124" width="66" height="10" rx="5" fill="#39414E"/>
+      <rect x="16" y="142" width="90" height="10" rx="5" fill="#2E3541"/>
+      <rect x="2" y="2" width="136" height="172" rx="10" fill="none" stroke="#3A7CA5" stroke-width="4"/>
+      <rect x="70" y="136" width="58" height="28" rx="8" fill="#3A7CA5"/>
+      <text x="99" y="156" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+            font-size="18" font-weight="700" fill="#FFFFFF">FB2</text>
+    </g>
+    <g transform="translate(848 220)">
+      <rect width="140" height="176" rx="12" fill="url(#cover)"/>
+      <rect x="16" y="20" width="52" height="96" rx="6" fill="#2C3542"/>
+      <rect x="74" y="20" width="50" height="44" rx="6" fill="#2C3542"/>
+      <rect x="74" y="70" width="50" height="46" rx="6" fill="#28303C"/>
+      <rect x="16" y="124" width="66" height="10" rx="5" fill="#39414E"/>
+      <rect x="16" y="142" width="90" height="10" rx="5" fill="#2E3541"/>
+      <rect x="2" y="2" width="136" height="172" rx="10" fill="none" stroke="#F0C346" stroke-width="4"/>
+      <rect x="70" y="136" width="58" height="28" rx="8" fill="#F0C346"/>
+      <text x="99" y="156" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+            font-size="18" font-weight="700" fill="#101318">7Z</text>
+    </g>
+    <g transform="translate(1000 220)">
+      <rect width="140" height="176" rx="12" fill="url(#cover)"/>
+      <rect x="16" y="20" width="52" height="96" rx="6" fill="#2C3542"/>
+      <rect x="74" y="20" width="50" height="44" rx="6" fill="#2C3542"/>
+      <rect x="74" y="70" width="50" height="46" rx="6" fill="#28303C"/>
+      <rect x="16" y="124" width="66" height="10" rx="5" fill="#39414E"/>
+      <rect x="16" y="142" width="90" height="10" rx="5" fill="#2E3541"/>
+      <rect x="2" y="2" width="136" height="172" rx="10" fill="none" stroke="#3A7CA5" stroke-width="4"/>
+      <rect x="70" y="136" width="58" height="28" rx="8" fill="#3A7CA5"/>
+      <text x="99" y="156" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+            font-size="18" font-weight="700" fill="#FFFFFF">AZW3</text>
+    </g>
+  </g>
+</svg>

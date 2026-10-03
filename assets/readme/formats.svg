@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520"
+     role="img" aria-labelledby="fmt-title fmt-desc">
+  <title id="fmt-title">Supported containers, how each cover is found, and how images are decoded</title>
+  <desc id="fmt-desc">Top: seven container families in two rows — ZIP/CBZ, RAR/CBR, 7Z/CB7, TAR/CBT in
+    amber, EPUB, FB2, MOBI/AZW/AZW3 in blue, with the rule each uses to pick the cover image, plus a
+    muted cell listing formats that are not supported yet. Bottom: the two image-codec paths — Windows
+    decodes AVIF and JXL through the system Windows Imaging Component, while macOS and other builds
+    statically link libavif with dav1d and jxl-oxide into the extension itself.</desc>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+    <rect width="1200" height="520" rx="26" fill="#101318"/>
+
+    <text x="56" y="52" font-size="26" font-weight="700" fill="#EDF1F6">Containers · 容器格式</text>
+    <text x="1144" y="52" text-anchor="end" font-size="19" fill="#8A94A3">13 extensions · 13 种扩展名</text>
+
+    <!-- archives row -->
+    <g transform="translate(56 72)">
+      <rect width="256" height="92" rx="14" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <rect x="10" y="14" width="5" height="64" rx="2.5" fill="#F0C346"/>
+      <text x="22" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" font-weight="700" fill="#EDF1F6">.zip .cbz</text>
+      <text x="22" y="60" font-size="18" fill="#96A1B0">first image, natural sort</text>
+      <text x="22" y="82" font-size="18" fill="#7C879A">首图 · 自然排序</text>
+    </g>
+    <g transform="translate(328 72)">
+      <rect width="256" height="92" rx="14" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <rect x="10" y="14" width="5" height="64" rx="2.5" fill="#F0C346"/>
+      <text x="22" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" font-weight="700" fill="#EDF1F6">.rar .cbr</text>
+      <text x="22" y="60" font-size="18" fill="#96A1B0">first image, ≤ 2 GiB</text>
+      <text x="22" y="82" font-size="18" fill="#7C879A">首图 · 上限 2 GiB</text>
+    </g>
+    <g transform="translate(600 72)">
+      <rect width="256" height="92" rx="14" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <rect x="10" y="14" width="5" height="64" rx="2.5" fill="#F0C346"/>
+      <text x="22" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" font-weight="700" fill="#EDF1F6">.7z .cb7</text>
+      <text x="22" y="60" font-size="18" fill="#96A1B0">first image</text>
+      <text x="22" y="82" font-size="18" fill="#7C879A">首图</text>
+    </g>
+    <g transform="translate(872 72)">
+      <rect width="256" height="92" rx="14" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <rect x="10" y="14" width="5" height="64" rx="2.5" fill="#F0C346"/>
+      <text x="22" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" font-weight="700" fill="#EDF1F6">.tar .cbt</text>
+      <text x="22" y="60" font-size="18" fill="#96A1B0">uncompressed tar, ≤ 2 GiB</text>
+      <text x="22" y="82" font-size="18" fill="#7C879A">未压缩 tar · 上限 2 GiB</text>
+    </g>
+
+    <!-- ebook row -->
+    <g transform="translate(56 178)">
+      <rect width="256" height="92" rx="14" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <rect x="10" y="14" width="5" height="64" rx="2.5" fill="#3A7CA5"/>
+      <text x="22" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" font-weight="700" fill="#EDF1F6">.epub</text>
+      <text x="22" y="60" font-size="18" fill="#96A1B0">OPF manifest cover</text>
+      <text x="22" y="82" font-size="18" fill="#7C879A">按 OPF 清单取封面</text>
+    </g>
+    <g transform="translate(328 178)">
+      <rect width="256" height="92" rx="14" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <rect x="10" y="14" width="5" height="64" rx="2.5" fill="#3A7CA5"/>
+      <text x="22" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" font-weight="700" fill="#EDF1F6">.fb2</text>
+      <text x="22" y="60" font-size="18" fill="#96A1B0">&lt;coverpage&gt; + base64</text>
+      <text x="22" y="82" font-size="18" fill="#7C879A">内联 base64 图片</text>
+    </g>
+    <g transform="translate(600 178)">
+      <rect width="256" height="92" rx="14" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <rect x="10" y="14" width="5" height="64" rx="2.5" fill="#3A7CA5"/>
+      <text x="22" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" font-weight="700" fill="#EDF1F6">.mobi .azw .azw3</text>
+      <text x="22" y="60" font-size="18" fill="#96A1B0">EXTH 201 CoverOffset</text>
+      <text x="22" y="82" font-size="18" fill="#7C879A">读 EXTH 201 记录</text>
+    </g>
+    <g transform="translate(872 178)">
+      <rect width="256" height="92" rx="14" fill="#14181F" stroke="#232A34" stroke-width="2" stroke-dasharray="6 6"/>
+      <text x="22" y="34" font-size="20" fill="#6F7A89">not yet · 尚未支持</text>
+      <text x="22" y="60" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="#6F7A89">HEIC · SVG · DjVu</text>
+      <text x="22" y="82" font-size="18" fill="#5E6876">加密压缩包也不支持</text>
+    </g>
+
+    <!-- codec paths -->
+    <text x="56" y="316" font-size="26" font-weight="700" fill="#EDF1F6">Image codecs inside · 包内图像解码</text>
+    <text x="56" y="346" font-size="19" fill="#A9B3C0">Always: .jpg .jpeg .png .gif .bmp .tiff .tif .ico .webp &#8212; 纯 Rust 解码，无需系统组件</text>
+
+    <g transform="translate(56 362)">
+      <rect width="528" height="128" rx="16" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <text x="22" y="36" font-size="22" font-weight="700" fill="#F0C346">Windows · feature wic (default)</text>
+      <text x="22" y="66" font-size="18" fill="#B6C0CD">AVIF / JXL through system WIC codecs</text>
+      <text x="22" y="92" font-size="18" fill="#96A1B0">Win 11 24H2+ ships them; Win 10 → Store</text>
+      <text x="22" y="116" font-size="18" fill="#7C879A">走系统 WIC，需相应编解码器</text>
+    </g>
+    <g transform="translate(616 362)">
+      <rect width="528" height="128" rx="16" fill="#151A21" stroke="#232A34" stroke-width="2"/>
+      <text x="22" y="36" font-size="22" font-weight="700" fill="#3A7CA5">macOS &amp; other · statically linked</text>
+      <text x="22" y="66" font-size="18" fill="#B6C0CD">libavif + dav1d · jxl-oxide inside the .appex</text>
+      <text x="22" y="92" font-size="18" fill="#96A1B0">no system codec, no user setup</text>
+      <text x="22" y="116" font-size="18" fill="#7C879A">解码器直接链进扩展，开箱即用</text>
+    </g>
+  </g>
+</svg>
