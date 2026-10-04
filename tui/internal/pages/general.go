@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"github.com/HibernalGlow/ArcThumbX/tui/internal/arcthumb"
 	"github.com/HibernalGlow/ArcThumbX/tui/internal/components"
 	"github.com/HibernalGlow/ArcThumbX/tui/internal/theme"
 	"github.com/HibernalGlow/ArcThumbX/tui/internal/tuicfg"
@@ -31,7 +32,7 @@ func generalSections(e *Env) []components.Section {
 			"On a wide terminal the rail sits beside the pane; below the breakpoint it folds into tabs by itself.",
 			components.SourceLocal),
 		components.Bind("Long-form measure", fader(e),
-			"Width cap for prose and metadata, so a 200-column terminal does not produce a 200-column paragraph.",
+			"Width cap for prose and metadata, so a 200-column terminal does not paint a 200-column rule or metadata line.",
 			components.SourceLocal),
 	}}
 
@@ -78,54 +79,48 @@ func generalSections(e *Env) []components.Section {
 // guiThemeSelect cycles the GUI's theme rocker stored in the shared file. Index
 // 0 is "not chosen", which writes no key at all.
 func guiThemeSelect(e *Env) components.Control {
-	tags := []string{"", "dark", "light"}
-	labels := []string{"Not chosen", "Dark", "Light"}
-	details := []string{
-		"No key is written, so the panel keeps its own default.",
-		"Writes theme = dark.",
-		"Writes theme = light.",
-	}
-	return tagSelect(e, tags, labels, details,
+	return choiceSelect("theme", "No key is written, so the panel keeps its own default.",
+		arcthumb.PanelThemeChoices(),
 		func() string { return e.Settings.Theme },
 		func(v string) { e.Settings.Theme = v })
 }
 
-// guiLocaleSelect cycles the GUI's language keycaps, same three-state rule.
+// guiLocaleSelect cycles the GUI's language keycaps, same unset rule, in the
+// panel's own keycap order — so 中文 leads here the way it leads there.
 func guiLocaleSelect(e *Env) components.Control {
-	tags := []string{"", "en", "ja", "zh"}
-	labels := []string{"Not chosen", "English", "日本語", "中文"}
-	details := []string{
-		"No key is written, so the OS locale decides.",
-		"Writes language = en.",
-		"Writes language = ja.",
-		"Writes language = zh.",
-	}
-	return tagSelect(e, tags, labels, details,
+	return choiceSelect("language", "No key is written, so the OS locale decides.",
+		arcthumb.PanelLocaleChoices(),
 		func() string { return e.Settings.Language },
 		func(v string) { e.Settings.Language = v })
 }
 
-// tagSelect is a cycling selector over stored tag values, reused by both
-// shared-file controls so neither can drift from the other's index rules.
-func tagSelect(e *Env, tags, labels, details []string, get func() string, set func(string)) components.Control {
-	opts := make([]components.Option, 0, len(tags))
-	for i, label := range labels {
-		opts = append(opts, components.Option{Label: label, Detail: details[i]})
+// choiceSelect is a cycling selector over the tag values the shared file may
+// hold. Both shared-file controls build from an arcthumb table and derive the
+// label and the "writes k = v" sentence from the tag, so neither can drift from
+// the values the Rust panel actually accepts.
+func choiceSelect(key, unsetNote string, choices []arcthumb.PanelChoice, get func() string, set func(string)) components.Control {
+	opts := make([]components.Option, 0, len(choices))
+	for _, c := range choices {
+		note := unsetNote
+		if c.Tag != "" {
+			note = "Writes " + key + " = " + c.Tag + "."
+		}
+		opts = append(opts, components.Option{Label: c.Name, Detail: note})
 	}
 	return components.NewSelect(
 		func() int {
-			for i, tag := range tags {
-				if tag == get() {
+			for i, c := range choices {
+				if c.Tag == get() {
 					return i
 				}
 			}
 			return 0
 		},
 		func(i int) {
-			if i < 0 || i >= len(tags) {
+			if i < 0 || i >= len(choices) {
 				return
 			}
-			set(tags[i])
+			set(choices[i].Tag)
 		},
 		opts,
 	)

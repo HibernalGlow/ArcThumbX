@@ -218,8 +218,10 @@ func (l *List) View(c Ctx) string {
 	for i := start; i < len(l.Items) && len(lines) < c.Rect.H; i++ {
 		it := l.Items[i]
 		marker := t.Components.Body.Render("  ")
+		label := t.Components.ListItem
 		if i == l.cursor() {
 			marker = t.Components.Focus.Render(t.Glyphs.Focus) + " "
+			label = t.Components.ListItemActive
 		}
 		value := it.Value
 		if it.Badge != nil {
@@ -228,7 +230,7 @@ func (l *List) View(c Ctx) string {
 			value = layout.FitRight(value, vw)
 		}
 		labelW := max(w-3-vw, 6)
-		line := marker + t.Components.Body.Render(layout.Truncate(it.Label, labelW))
+		line := marker + label.Render(layout.Truncate(it.Label, labelW))
 		line += strings.Repeat(" ", max(w-lipgloss.Width(line)-lipgloss.Width(value), 1))
 		line += value
 		lines = append(lines, line)

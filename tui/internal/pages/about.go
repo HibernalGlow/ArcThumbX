@@ -37,6 +37,13 @@ func (a *About) Sub() string     { return "terminal front end · phase one" }
 func (a *About) Render(c components.Ctx) string {
 	t := c.T
 	w := max(c.Rect.W, 20)
+	// The measure cap lands here: prose and metadata stop at the configured
+	// width even in a very wide terminal. The binding table below keeps the
+	// pane's full width, because a two-column table is not a paragraph.
+	measure := w
+	if m := a.env.Prefs.ContentWidth; m > 0 && m < measure {
+		measure = m
+	}
 
 	identity := []string{
 		t.Components.Title.Render("ARC"+t.Glyphs.Link+"THUMB") + " " +
@@ -47,13 +54,13 @@ func (a *About) Render(c components.Ctx) string {
 			" · measure " + strconv.Itoa(a.env.Prefs.ContentWidth) + " cols"),
 		t.Components.Caption.Render(components.SwatchRow(t,
 			[]string{"background", "surface", "surfaceElevated", "primary", "accent", "secondary", "success", "warning", "error", "border"})),
-		t.Rule(w, t.Colors.BorderMuted),
+		t.Rule(measure, t.Colors.BorderMuted),
 	}
 
-	// Every identity line is clipped to the pane: they are metadata, and a
+	// Every identity line is clipped to the measure: they are metadata, and a
 	// wrapped one would push the bindings list out of the pane's geometry.
 	for i := range identity {
-		identity[i] = layout.Truncate(identity[i], w)
+		identity[i] = layout.Truncate(identity[i], measure)
 	}
 
 	// The list gets whatever height is left, so a small terminal still shows the

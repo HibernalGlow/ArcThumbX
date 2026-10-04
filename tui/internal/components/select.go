@@ -66,7 +66,7 @@ func (s *Select) Display(t *theme.Theme) string {
 	if label == "" {
 		label = "—"
 	}
-	return t.Components.Value.Render(label)
+	return t.Components.Select.Render(label)
 }
 
 // DisplayFocused adds the cycle affordance.

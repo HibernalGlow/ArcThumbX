@@ -107,7 +107,7 @@ func TestTerminalDefaultEmitsNoBackground(t *testing.T) {
 	if th.Scheme != theme.SchemeTerminal {
 		t.Errorf("scheme = %v, want terminal", th.Scheme)
 	}
-	rendered := th.Components.RowActive.Render("sample")
+	rendered := th.Components.Inspector.Render("sample")
 	if strings.Contains(rendered, "48;") {
 		t.Errorf("terminal default painted a background: %q", stripReset(rendered))
 	}
@@ -118,8 +118,11 @@ func TestTerminalDefaultEmitsNoBackground(t *testing.T) {
 		{"Root", th.Components.Root},
 		{"Header", th.Components.Header},
 		{"Nav", th.Components.Nav},
+		{"TabBar", th.Components.TabBar},
 		{"HelpBar", th.Components.HelpBar},
 		{"Dialog", th.Components.Dialog},
+		{"ButtonPrimary", th.Components.ButtonPrimary},
+		{"NavItemHover", th.Components.NavItemHover},
 	} {
 		out := s.style.Render("x")
 		if strings.Contains(out, "48;2:") || strings.Contains(out, "48;5:") {
@@ -136,7 +139,7 @@ func TestTerminalDefaultDetectsNoColourIsThePositiveControl(t *testing.T) {
 	if !ok {
 		t.Fatal("retro_future missing")
 	}
-	if !strings.Contains(th.Components.RowActive.Render("sample"), "48;") {
+	if !strings.Contains(th.Components.Inspector.Render("sample"), "48;") {
 		t.Fatal("positive control failed: Retro Future painted no background, so the gate above is blind")
 	}
 }

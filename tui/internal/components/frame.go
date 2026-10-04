@@ -6,7 +6,6 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/HibernalGlow/ArcThumbX/tui/internal/layout"
-	"github.com/HibernalGlow/ArcThumbX/tui/internal/theme"
 )
 
 // Header is the instrument nameplate: brand at the left, live metadata at the
@@ -222,14 +221,9 @@ func (d *Dialog) View(c Ctx) string {
 		Rect: layout.R(0, 0, max(w-10, 20), 1),
 	}))
 
-	boxStyle := lipgloss.NewStyle().
-		Border(t.Borders.Accent.Border()).
-		BorderForeground(theme.Paint(t.Borders.Accent.Foreground)).
-		Padding(1, 2)
-	if !t.Colors.Overlay.TerminalDefault() {
-		boxStyle = boxStyle.Background(theme.Paint(t.Colors.Surface))
-	}
-	box := boxStyle.Render(strings.Join(content, "\n"))
+	// The frame comes from the theme's Dialog slot: the accent border and the
+	// interior ground are a preset's decision. This component only owns geometry.
+	box := t.Components.Dialog.Render(strings.Join(content, "\n"))
 
 	// The buttons are the last line of content, so their absolute row follows
 	// from the content length and the box's own top border + padding. Deriving it
@@ -270,11 +264,8 @@ func (d *Dialog) View(c Ctx) string {
 		}
 	}
 
-	ground := lipgloss.NewStyle().Width(w).Height(h).
+	ground := t.Components.Scrim.Width(w).Height(h).
 		Align(lipgloss.Center).AlignVertical(lipgloss.Center)
-	if !t.Colors.Overlay.TerminalDefault() {
-		ground = ground.Background(theme.Paint(t.Colors.Overlay))
-	}
 	return ground.Render(box)
 }
 
@@ -351,7 +342,7 @@ func (s *Shell) View(c Ctx) string {
 	// help bar one line past the bottom.
 	lines := layout.Lines(s.Header.View(Ctx{T: t, Rect: layout.R(c.Rect.X, c.Rect.Y, w, HeaderHeight)}))
 	for i := range lines {
-		lines[i] = ground(lines[i], t.Colors.Surface, w)
+		lines[i] = paintBand(t.Components.Header, lines[i], w)
 	}
 
 	// A folded rail costs the pane one line, which is why the tab strip is laid
@@ -362,9 +353,11 @@ func (s *Shell) View(c Ctx) string {
 	}
 	band := make([]string, 0, contentH)
 	if tabH == 1 {
-		band = append(band, s.Folded.View(Ctx{
+		// A folded rail is still chrome, so it sits on the tab bar's lifted
+		// ground rather than the page canvas that starts below it.
+		band = append(band, paintBand(t.Components.TabBar, s.Folded.View(Ctx{
 			T: t, Rect: layout.R(c.Rect.X, c.Rect.Y+HeaderHeight, w, 1), Hits: c.Hits,
-		}))
+		}), w))
 	}
 	pageH := max(contentH-tabH, 1)
 	s.Pane = layout.R(paneX, c.Rect.Y+HeaderHeight+tabH, paneW, pageH)
@@ -400,7 +393,7 @@ func (s *Shell) View(c Ctx) string {
 		case folded:
 			// No rail, so the pane owns the whole width and the chrome bands
 			// are the only lifted surfaces.
-			band = append(band, ground(pageLines[i], t.Colors.Background, w))
+			band = append(band, paintBand(t.Components.Root, pageLines[i], w))
 		default:
 			rail := ""
 			if i < len(railLines) {
@@ -409,22 +402,22 @@ func (s *Shell) View(c Ctx) string {
 			// Each half is painted to its own reserved width, because a single
 			// Style over the joined line would put the pane's ground under the
 			// rail. Together the three parts are exactly w cells.
-			band = append(band, ground(rail, t.Colors.Surface, navW-2)+
-				ground(t.Components.Grid.Render(t.Glyphs.Grid)+" "+pageLines[i],
-					t.Colors.Background, w-navW+2))
+			band = append(band, paintBand(t.Components.Nav, rail, navW-2)+
+				paintBand(t.Components.Root,
+					t.Components.Grid.Render(t.Glyphs.Grid)+" "+pageLines[i], w-navW+2))
 		}
 	}
 	lines = append(lines, band...)
 
 	// Footer: rule, inspector readout, help bar.
 	footY := c.Rect.Y + HeaderHeight + len(band)
-	lines = append(lines, ground(t.Rule(w, t.Colors.Border), t.Colors.Background, w))
-	lines = append(lines, ground(s.Inspector.View(Ctx{
+	lines = append(lines, paintBand(t.Components.Root, t.FrameRule(w), w))
+	lines = append(lines, paintBand(t.Components.Inspector, s.Inspector.View(Ctx{
 		T: t, Rect: layout.R(c.Rect.X, footY+1, w, 1), Hits: c.Hits,
-	}), t.Colors.Surface, w))
-	lines = append(lines, ground(s.Help.View(Ctx{
+	}), w))
+	lines = append(lines, paintBand(t.Components.HelpBar, s.Help.View(Ctx{
 		T: t, Rect: layout.R(c.Rect.X, footY+2, w, 1), Hits: c.Hits,
-	}), t.Colors.Surface, w))
+	}), w))
 
 	if len(lines) > h {
 		lines = lines[:h]
@@ -442,16 +435,15 @@ func (s *Shell) foldAt() int {
 	return FoldAtDefault
 }
 
-// ground paints a full-width strip of colour behind an already composed line.
-//
-// This exists because a terminal only shows a theme's ground where something
-// paints it: a palette with a CRT canvas in its tokens but no painted band
-// renders as whatever background the user's terminal happens to have. Inherit
-// compiles to no SGR, so the Terminal Default preset stays untouched by this.
-func ground(s string, bg theme.Color, w int) string {
-	if w <= 0 || bg == theme.Inherit {
-		return s
+// paintBand stretches an existing component style across the full width behind
+// an already composed line. Every strip the shell draws goes through this rather
+// than a colour picked here: a terminal only shows a theme's ground where
+// something paints it, and a component that names a colour token directly is the
+// coupling the theme layer exists to prevent. Inherit compiles to no SGR, so a
+// preset that inherits its terminal's palette is untouched by this.
+func paintBand(s lipgloss.Style, line string, w int) string {
+	if w <= 0 {
+		return line
 	}
-	return lipgloss.NewStyle().Width(w).
-		Background(theme.Paint(bg)).ColorWhitespace(true).Render(s)
+	return s.Width(w).ColorWhitespace(true).Render(line)
 }

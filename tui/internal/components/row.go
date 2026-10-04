@@ -60,7 +60,14 @@ func (r *Row) DisplayValue(t *theme.Theme, focused bool) string {
 			out = r.Control.Display(t)
 		}
 	default:
-		out = Static{Value: r.Value}.Display(t)
+		if focused {
+			// The value follows the label into selection ink. A readout that
+			// stays in its normal colour beside a highlighted label reads as two
+			// different states of one row.
+			out = t.Components.ValueActive.Render(r.Value)
+		} else {
+			out = Static{Value: r.Value}.Display(t)
+		}
 	}
 	if r.Status != nil {
 		out += " " + r.Status.View(t)
@@ -80,9 +87,13 @@ func (r *Row) View(t *theme.Theme, w int, focused bool) (line string, valueX int
 		labelStyle = t.Components.LabelActive
 	}
 
-	marker := "  "
+	// The marker column is one nesting level wide: the caret when focused, blank
+	// otherwise, so labels in a column of rows stay aligned.
+	indent := max(t.Space.Indent, 1)
+	marker := strings.Repeat(" ", indent)
 	if focused {
-		marker = t.Components.Focus.Render(t.Glyphs.Focus) + " "
+		gap := max(indent-lipgloss.Width(t.Glyphs.Focus), 0)
+		marker = t.Components.Focus.Render(t.Glyphs.Focus) + strings.Repeat(" ", gap)
 	}
 	flagMark := ""
 	if r.Flag != SourceLive {

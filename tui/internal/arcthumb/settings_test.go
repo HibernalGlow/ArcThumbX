@@ -254,6 +254,167 @@ func TestSourceParityDetectsDrift(t *testing.T) {
 	}
 }
 
+// TestPanelChoiceTablesMatchRust keeps the two shared-file selectors honest.
+// Their values land in a file the Rust panel reads back, so a tag the panel
+// cannot resolve would be written as a silent lie, and a fourth locale added
+// there must show up here rather than stay unreachable in the TUI.
+func TestPanelChoiceTablesMatchRust(t *testing.T) {
+	root := repoRoot(t)
+	src := readSource(t, root, "src/bin/arcthumb-config/locale.rs")
+
+	localeTags := rustTagArms(t, src, "Locale")
+	localeNames := rustArms(t, src, "Locale", "endonym")
+	keycaps := rustConstOrder(t, src, "Locale")
+
+	got := arcthumb.PanelLocaleChoices()
+	if len(got) == 0 || got[0].Tag != "" {
+		t.Fatalf("locale table must start with the unset sentinel, got %+v", got)
+	}
+	if diff := stringDiff(fields(got[1:], func(c arcthumb.PanelChoice) string { return c.Tag }),
+		mappedBy(keycaps, localeTags)); diff != "" {
+		t.Errorf("language tags differ from the Rust Locale keycaps (tag order is keycap order):\n%s", diff)
+	}
+	if diff := stringDiff(fields(got[1:], func(c arcthumb.PanelChoice) string { return c.Name }),
+		mappedBy(keycaps, localeNames)); diff != "" {
+		t.Errorf("language names differ from the Rust endonyms:\n%s", diff)
+	}
+
+	themeTags := rustTagArms(t, src, "Theme")
+	if diff := stringDiff(fields(arcthumb.PanelThemeChoices()[1:],
+		func(c arcthumb.PanelChoice) string { return c.Tag }),
+		rustEnumOrder(t, src, "Theme", themeTags)); diff != "" {
+		t.Errorf("theme tags differ from the Rust Theme rocker:\n%s", diff)
+	}
+
+	// Positive control: the same comparison must go red on a swapped tag, or a
+	// passing parity gate would prove nothing about the selector.
+	swapped := append([]arcthumb.PanelChoice(nil), got[1:]...)
+	swapped[0], swapped[1] = swapped[1], swapped[0]
+	if diff := stringDiff(fields(swapped, func(c arcthumb.PanelChoice) string { return c.Tag }),
+		mappedBy(keycaps, localeTags)); diff == "" {
+		t.Fatal("positive control failed: a swapped language table compared as equal")
+	}
+}
+
+func fields(ts []arcthumb.PanelChoice, pick func(arcthumb.PanelChoice) string) []string {
+	out := make([]string, 0, len(ts))
+	for _, c := range ts {
+		out = append(out, pick(c))
+	}
+	return out
+}
+
+// mappedBy resolves a variant list through a table, keeping the source order.
+func mappedBy(variants []string, table map[string]string) []string {
+	out := make([]string, 0, len(variants))
+	for _, v := range variants {
+		got, ok := table[v]
+		if !ok {
+			got = "<no arm for " + v + ">"
+		}
+		out = append(out, got)
+	}
+	return out
+}
+
+// implScope returns one Rust impl block, cut at the brace that closes it.
+func implScope(t *testing.T, src, typeName string) string {
+	t.Helper()
+	open := "impl " + typeName + " {"
+	i := strings.Index(src, open)
+	if i < 0 {
+		t.Fatalf("Rust impl %s not found", typeName)
+	}
+	rest := src[i:]
+	end := strings.Index(rest, "\n}")
+	if end < 0 {
+		t.Fatalf("impl %s never closes", typeName)
+	}
+	return rest[:end]
+}
+
+// rustArms collects `Type::Variant => "value"` arms from one named method. The
+// window must stop at the next method: Locale::tag and Locale::endonym share a
+// shape, and reading past the boundary would let one arm table overwrite the
+// other while the comparison still looked green.
+func rustArms(t *testing.T, src, typeName, method string) map[string]string {
+	t.Helper()
+	block := implScope(t, src, typeName)
+	start := strings.Index(block, "fn "+method)
+	if start < 0 {
+		t.Fatalf("%s::%s not found", typeName, method)
+	}
+	body := block[start:]
+	if next := strings.Index(body[len("fn "+method):], "\n    pub fn "); next >= 0 {
+		body = body[:len("fn "+method)+next]
+	}
+	re := regexp.MustCompile(typeName + `::(\w+)\s*=>\s*"([^"]+)"`)
+	ms := re.FindAllStringSubmatch(body, -1)
+	if len(ms) == 0 {
+		t.Fatalf("%s::%s yielded no arms", typeName, method)
+	}
+	out := make(map[string]string, len(ms))
+	for _, m := range ms {
+		out[m[1]] = m[2]
+	}
+	return out
+}
+
+func rustTagArms(t *testing.T, src, typeName string) map[string]string {
+	return rustArms(t, src, typeName, "tag")
+}
+
+// rustConstOrder reads the variant names out of `pub const ALL: [Type; n]`,
+// cut at the closing bracket so the methods below it cannot join the list.
+func rustConstOrder(t *testing.T, src, typeName string) []string {
+	t.Helper()
+	block := implScope(t, src, typeName)
+	i := strings.Index(block, "const ALL")
+	if i < 0 {
+		t.Fatalf("%s has no ALL const to take keycap order from", typeName)
+	}
+	body := block[i:]
+	if end := strings.Index(body, "];"); end >= 0 {
+		body = body[:end]
+	}
+	re := regexp.MustCompile(typeName + `::(\w+)`)
+	ms := re.FindAllStringSubmatch(body, -1)
+	if len(ms) == 0 {
+		t.Fatalf("%s::ALL yielded no variants", typeName)
+	}
+	out := make([]string, 0, len(ms))
+	for _, m := range ms {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+// rustEnumOrder reads a plain enum's variants, in declaration order, and maps
+// them through a table so the result is the values the TUI must offer.
+func rustEnumOrder(t *testing.T, src, typeName string, table map[string]string) []string {
+	t.Helper()
+	i := strings.Index(src, "pub enum "+typeName+" {")
+	if i < 0 {
+		t.Fatalf("Rust enum %s not found", typeName)
+	}
+	body := src[i:]
+	end := strings.Index(body, "\n}")
+	if end < 0 {
+		t.Fatalf("enum %s never closes", typeName)
+	}
+	var out []string
+	for _, line := range strings.Split(body[:end], "\n") {
+		v := strings.TrimSuffix(strings.TrimSpace(line), ",")
+		if _, ok := table[v]; ok {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		t.Fatalf("enum %s yielded no variants", typeName)
+	}
+	return mappedBy(out, table)
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()

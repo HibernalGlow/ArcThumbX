@@ -98,19 +98,16 @@ type Components struct {
 	// Containers. Dialog is the only component in the design system that is
 	// allowed a full box, because a modal's job is to be unmistakably
 	// separate.
-	Root    lipgloss.Style
-	Panel   lipgloss.Style
-	Card    lipgloss.Style
-	Sunken  lipgloss.Style
-	Dialog  lipgloss.Style
-	Scrim   lipgloss.Style
-	Overlay lipgloss.Style
+	Root   lipgloss.Style
+	Panel  lipgloss.Style
+	Card   lipgloss.Style
+	Dialog lipgloss.Style
+	Scrim  lipgloss.Style
 
 	// Header.
 	Header     lipgloss.Style
 	Brand      Text
 	HeaderMeta Text
-	HeaderRule lipgloss.Style
 
 	// Navigation rail.
 	Nav           lipgloss.Style
@@ -118,7 +115,6 @@ type Components struct {
 	NavItem       Text
 	NavItemActive Text
 	NavItemHover  lipgloss.Style
-	NavGutter     lipgloss.Style
 	NavBadge      lipgloss.Style
 
 	// Tabs.
@@ -126,36 +122,34 @@ type Components struct {
 	Tab       Text
 	TabActive Text
 
-	// Sections and rows.
+	// Sections and rows. A row is composed from its parts rather than wrapped in
+	// a style of its own: the line's width is already exact, and padding here
+	// would widen it past the terminal.
 	Section     Text
 	SectionRule lipgloss.Style
-	Row         lipgloss.Style
-	RowActive   lipgloss.Style
 	Label       Text
 	LabelActive Text
 	Value       Text
 	ValueActive Text
 	ValueFlag   Text
 	Description Text
-	KeyLabel    Text
 
-	// Controls.
-	Toggle        lipgloss.Style
+	// Controls. A toggle and a select carry their state in the glyph and the
+	// value ink, so they need an on/off and an arrows slot but not a container.
 	ToggleOn      lipgloss.Style
 	ToggleOff     lipgloss.Style
-	Select        lipgloss.Style
+	Select        Text
 	SelectArrows  lipgloss.Style
 	SliderTrack   lipgloss.Style
 	SliderFill    lipgloss.Style
-	SliderText    lipgloss.Style
 	Button        lipgloss.Style
 	ButtonPrimary lipgloss.Style
 	ButtonHover   lipgloss.Style
 	Input         lipgloss.Style
 	InputActive   lipgloss.Style
 
-	// Lists.
-	List           lipgloss.Style
+	// Lists. The list itself is a stack of rows, so only the row styles are
+	// compiled; the cursor row is a different ink, not a different box.
 	ListItem       Text
 	ListItemActive Text
 
@@ -170,21 +164,21 @@ type Components struct {
 
 	// Help bar.
 	HelpBar    lipgloss.Style
+	Inspector  lipgloss.Style
 	HelpKey    Text
 	HelpAction Text
 	HelpDim    Text
 
-	// Shared typographic roles for long-form pages.
-	Title    Text
-	Heading  Text
-	Body     Text
-	BodyStr  Text
-	Caption  Text
-	Emphasis Text
-	Muted    Text
-	Rule     lipgloss.Style
-	Grid     lipgloss.Style
-	Focus    lipgloss.Style
+	// Shared typographic roles for long-form pages. The rules and the grid are
+	// here because the shell paints them; the rest of the roles a preset can
+	// declare live in the typography table instead.
+	Title   Text
+	Heading Text
+	Body    Text
+	Caption Text
+	Muted   Text
+	Grid    lipgloss.Style
+	Focus   lipgloss.Style
 }
 
 // Build compiles a token set into a ready-to-render theme. It mutates and
@@ -214,22 +208,21 @@ func Build(t *Theme) *Theme {
 	c.Root = band(col.Background, col.Foreground)
 	c.Panel = box(t, t.Borders.Subtle, col.Surface)
 	c.Card = box(t, t.Borders.Normal, col.SurfaceElevated)
-	c.Sunken = box(t, t.Borders.None, col.SurfaceSunken)
-	c.Dialog = box(t, t.Borders.Accent, t.overlayGround())
+	// The modal's frame and the backdrop it floats on. The dialog keeps one line
+	// of padding above its title because the shell counts that row when it maps a
+	// click on an answer back to a cell.
+	c.Dialog = box(t, t.Borders.Accent, t.dialogGround()).Padding(t.Space.SM, t.Space.MD)
 	c.Scrim = lipgloss.NewStyle().Background(Paint(col.Overlay))
-	c.Overlay = band(col.Overlay, col.Foreground)
 
 	c.Header = band(col.Surface, col.Foreground)
 	c.Brand = text(typ.Title, col.Foreground)
 	c.HeaderMeta = text(typ.Caption, col.ForegroundMuted)
-	c.HeaderRule = ink(col.Border)
 
 	c.Nav = band(col.Surface, col.Foreground)
 	c.NavHeader = text(typ.Section, col.ForegroundMuted)
 	c.NavItem = text(typ.Body, col.Foreground)
-	c.NavItemActive = text(merge(typ.Body, TypeSpec{Bold: true}), col.SelectionText)
+	c.NavItemActive = text(merge(typ.BodyStr, TypeSpec{Foreground: col.SelectionText}), col.SelectionText)
 	c.NavItemHover = band(col.Selection, col.SelectionText)
-	c.NavGutter = ink(col.Grid)
 	c.NavBadge = ink(col.Accent)
 
 	c.TabBar = band(col.Surface, col.Foreground)
@@ -238,24 +231,24 @@ func Build(t *Theme) *Theme {
 
 	c.Section = text(typ.Section, col.Accent)
 	c.SectionRule = ink(col.BorderMuted)
-	c.Row = lipgloss.NewStyle()
-	c.RowActive = band(col.Selection, col.SelectionText)
 	c.Label = text(typ.Label, col.Foreground)
 	c.LabelActive = text(merge(typ.Label, TypeSpec{Bold: true}), col.SelectionText)
 	c.Value = text(typ.Value, col.Primary)
 	c.ValueActive = text(merge(typ.Value, TypeSpec{Bold: true}), col.SelectionText)
 	c.ValueFlag = text(typ.Value, col.ForegroundMuted)
 	c.Description = text(typ.Caption, col.ForegroundMuted)
-	c.KeyLabel = text(typ.Help, col.Accent)
 
-	c.Toggle = lipgloss.NewStyle()
 	c.ToggleOn = ink(col.Success)
 	c.ToggleOff = ink(col.Disabled)
-	c.Select = ink(col.Primary)
+	// The selector's value starts out identical to a plain value; it is a
+	// separate slot so a preset can make the one control that changes meaning on
+	// click read differently.
+	// The option a click will change is tier-1 information, so it carries the
+	// emphasis role rather than the plain value weight.
+	c.Select = text(merge(typ.Emphasis, TypeSpec{Foreground: col.Primary}), col.Primary)
 	c.SelectArrows = ink(col.ForegroundMuted)
 	c.SliderTrack = ink(col.Disabled)
 	c.SliderFill = ink(col.Primary)
-	c.SliderText = band(col.Selection, col.SelectionText)
 	// Buttons are painted grounds, not boxes. They share a line with other
 	// controls, and a four-sided border on a one-cell-tall string does not
 	// render as a button — it renders as rules through the label. The dialog is
@@ -266,9 +259,8 @@ func Build(t *Theme) *Theme {
 	c.Input = box(t, t.Borders.Subtle, col.SurfaceSunken)
 	c.InputActive = box(t, t.Borders.Strong, col.SurfaceSunken)
 
-	c.List = lipgloss.NewStyle()
 	c.ListItem = text(typ.Body, col.Foreground)
-	c.ListItemActive = text(merge(typ.Body, TypeSpec{Bold: true}), col.SelectionText)
+	c.ListItemActive = text(merge(typ.BodyStr, TypeSpec{Foreground: col.SelectionText}), col.SelectionText)
 
 	c.StatusOn = text(typ.Value, col.Success)
 	c.StatusOff = text(typ.Value, col.Disabled)
@@ -279,6 +271,7 @@ func Build(t *Theme) *Theme {
 	c.Swatch = lipgloss.NewStyle()
 
 	c.HelpBar = band(col.Surface, col.ForegroundMuted)
+	c.Inspector = band(col.Surface, col.ForegroundMuted)
 	c.HelpKey = text(typ.Help, col.Accent)
 	c.HelpAction = text(typ.Help, col.ForegroundMuted)
 	c.HelpDim = text(typ.Help, col.Disabled)
@@ -286,11 +279,8 @@ func Build(t *Theme) *Theme {
 	c.Title = text(typ.Title, col.Foreground)
 	c.Heading = text(typ.Heading, col.Foreground)
 	c.Body = text(typ.Body, col.Foreground)
-	c.BodyStr = text(typ.BodyStr, col.Foreground)
 	c.Caption = text(typ.Caption, col.ForegroundMuted)
-	c.Emphasis = text(typ.Emphasis, col.Primary)
 	c.Muted = text(typ.Caption, col.Disabled)
-	c.Rule = ink(col.Border)
 	c.Grid = ink(col.Grid)
 	c.Focus = ink(col.Focus)
 
@@ -305,6 +295,13 @@ func (t *Theme) Rule(n int, edge Color) string {
 	}
 	s := strings.Repeat(t.Glyphs.Rule, n)
 	return lipgloss.NewStyle().Foreground(Paint(edge)).Render(s)
+}
+
+// FrameRule is the shell's full-width divider. A component asks for a rule
+// instead of picking a colour for it, which is the difference between a theme
+// and a palette hardcoded in the renderer.
+func (t *Theme) FrameRule(n int) string {
+	return t.Rule(n, t.Colors.Border)
 }
 
 // GridColumn renders a vertical divider n cells tall in the grid colour. It is
@@ -329,6 +326,17 @@ func (t *Theme) overlayGround() Color {
 		return t.Colors.Overlay
 	}
 	return t.Colors.SurfaceElevated
+}
+
+// dialogGround is the modal's interior. It is the surface token rather than the
+// overlay one because the overlay is what the scrim is made of: painting the box
+// the same colour as its own backdrop leaves only a line between them. A
+// terminal-default preset inherits instead, so nothing is emitted at all.
+func (t *Theme) dialogGround() Color {
+	if t.Colors.Overlay.TerminalDefault() {
+		return Inherit
+	}
+	return t.Colors.Surface
 }
 
 // Border converts an edge token into the renderer's border shape. An empty edge

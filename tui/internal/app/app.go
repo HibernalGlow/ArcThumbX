@@ -235,9 +235,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseWheelMsg:
+		// Only the sign reaches the page: the scroll step is the page's own, so
+		// the number here must not pretend to be one.
 		dir := 1
 		if msg.Button == tea.MouseWheelUp {
-			dir = -3
+			dir = -1
 		}
 		if _, _, ok := m.hits.Pick(msg.X, msg.Y); ok {
 			m.act(pageAction(dir))
