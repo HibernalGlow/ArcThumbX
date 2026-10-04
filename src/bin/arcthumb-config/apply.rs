@@ -16,7 +16,7 @@
 //! ## Why a separate module
 //!
 //! Before this split, the only way to test "Apply does the right
-//! thing when the user toggles `.cbz`" was to drive a real Slint
+//! thing when the user toggles `.cbz`" was to drive a real GUI
 //! window AND let the test case write to `HKCU\Software\Classes`.
 //! Both are too costly to run on every `cargo test` invocation.
 //! Now the diff logic is a 30-line pure function, the side-effect

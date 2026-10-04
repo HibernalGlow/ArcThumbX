@@ -1,0 +1,696 @@
+/* ArcThumb config panel — Cassette Futurism ("catfu").
+ *
+ * The governing model is a machined instrument panel, not a web page: every
+ * pixel is a control, a readout, or a silk-screen label. The binding rules come
+ * from frontend-styles' catfu AESTHETIC_CONTRACT.md; the load-bearing ones here
+ * are zero border-radius on structure, no drop shadows or gradient fills, 1px
+ * hairlines doing all zone separation, one accent hue (cobalt) carrying action,
+ * amber and green reserved for true indicator semantics, and mechanical motion
+ * only — steps and snaps, never ease.
+ *
+ * Two surface layers, and the split is the whole idea:
+ *   chassis  — themeable (dark instrument panel / aged cream), every control
+ *   screen   — the LCD status strip and the CRT overlay: always dark, always
+ *              lit, and they do NOT invert with the theme. Their text uses the
+ *              fixed bright screen tokens, never --ink.
+ */
+
+/* ── TOKENS: dark chassis (default) ───────────────────────────────── */
+.chassis {
+/* dark chassis — the default */
+    --bg: #121316;
+    --chrome: #0e0f11;
+    --panel: #1a1a18;
+    --panel-2: #202123;
+    --panel-3: #2a2b2e;
+
+    --ink: #efece5;
+    --ink-dim: #b2b2ac;
+    --ink-faint: #909089;
+    --line: #303134;
+    --line-2: #43444a;
+    --alu: #d4d4d4;
+
+    --blue: #2e7dc4;
+    --blue-bright: #5fb0f0;
+    --blue-core: #235594;
+    --blue-deep: #15364f;
+    --blue-dim: #2a5e93;
+    --cyan: #58c8df;
+    /* Measured, not eyeballed: the contract's #04101c lands at 4.42:1 on the
+     * sampled cobalt, so the ink on a lit keycap goes one step deeper to clear
+     * AA. The fill stays the device blue — that is the token worth protecting. */
+    --cta-ink: #000509;
+
+    /* Lit tokens: identical in both themes, or indicators go muddy on cream. */
+    --screen-blue: #6bb6f5;
+    --amber: #ff6a00;
+    --amber-hi: #ffb066;
+    --green: #36e27b;
+    --brass: #c9a24b;
+
+    /* Sanctioned screen-internal constants. */
+    --lcd-bg: #06121f;
+    --lcd-line: #0a3252;
+    --crt-bg: #080705;
+    --crt-line: #1c150a;
+    --cell-bg: #15171a;
+    --cell-line: #232427;
+
+    --scan: rgba(255, 255, 255, 0.012);
+    --dot: rgba(95, 176, 240, 0.05);
+
+    /* The socket an indicator is mounted in. Fixed in both themes, because a
+     * green LED on a cream chassis is 1.5:1 — the hue must stay bright to read
+     * as lit, so the *shape* has to come from the bezel instead. */
+    --led-bezel: #0a0f14;
+
+    --ink-on-blue: var(--cta-ink);
+}
+
+/* ── TOKENS: light chassis. A cream enclosure with aluminium hairlines, not
+ * an inversion: the blue hardware and every screen stay exactly as they are. ── */
+.chassis.t-light {
+    --bg: #ece7dc;
+    --chrome: #f4f0e7;
+    --panel: #f6f2ea;
+    --panel-2: #fbf8f1;
+    --panel-3: #ffffff;
+
+    --ink: #1a1a18;
+    --ink-dim: #54544d;
+    --ink-faint: #61615a;
+    --line: #cfc9bb;
+    --line-2: #b3ac9b;
+    --alu: #6b6b62;
+
+    --blue: #1f6fb8;
+    --blue-bright: #145ea6;
+    --blue-dim: #4a6e93;
+    --cta-ink: #f6fbff;
+    --ink-on-blue: #f6fbff;
+}
+
+/* ── METRICS: 8px grid, 4px only for gaps inside a control ─────────── */
+:root {
+    --u: 8px;
+    --strip-h: 38px;
+    --lcd-h: 30px;
+}
+
+/* ── TYPE ─────────────────────────────────────────────────────────── */
+:root {
+    /* The faces are the ones the contract names, embedded as subsets under
+     * their derived OFL names (tools/fonts/subset.py). Nothing here reaches
+     * for a network font: this window has to render the same in an offline
+     * webview on a machine with no GPU and no internet. */
+    --mono: "ArcThumb Mono", "ArcThumb Sans SC", ui-monospace, "SF Mono", Menlo, Consolas,
+        "Noto Sans Mono CJK SC", "Microsoft YaHei Mono", monospace;
+    --display: "ArcThumb Panel Expanded", "ArcThumb Panel", "ArcThumb Sans SC", var(--mono);
+    /* Pixel face for the screens only — it is an LCD, not a heading font. */
+    --pixel: "ArcThumb Pixel", var(--mono);
+}
+
+* {
+    box-sizing: border-box;
+    /* Round is for knobs and LEDs. There are no knobs here. */
+    border-radius: 0;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+}
+
+body {
+    font-family: var(--mono);
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 1.45;
+    /* Lowercase body: hierarchy comes from size, weight and position, never
+     * from grammar. UPPERCASE is only ever silk-screen engraving. */
+    text-transform: lowercase;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    cursor: default;
+    user-select: none;
+}
+
+/* ── CHASSIS ──────────────────────────────────────────────────────── */
+.chassis {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--bg);
+    /* 1px scanlines and a PCB dot grid, at a strength you feel rather than
+     * see. Both are textures, not fills, so they do not break "no gradients". */
+    background-image: repeating-linear-gradient(
+            to bottom,
+            var(--scan) 0 1px,
+            transparent 1px 3px
+        ),
+        radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
+    background-size: 100% 3px, 16px 16px;
+}
+
+/* ── FUNCTION STRIP (the catfu status bar; it replaces a menu bar) ── */
+.strip {
+    flex: none;
+    display: flex;
+    align-items: stretch;
+    height: var(--strip-h);
+    background: var(--chrome);
+    border-bottom: 1px solid var(--line-2);
+    /* A flat row of captions, no dropdowns. */
+    overflow: hidden;
+}
+
+.strip .seg {
+    display: flex;
+    align-items: center;
+    gap: var(--u);
+    padding: 0 calc(var(--u) * 1.5);
+    border-right: 1px solid var(--line);
+}
+
+.strip .seg:last-child {
+    border-right: none;
+}
+
+.strip .grow {
+    flex: 1 1 auto;
+    border-right: none;
+}
+
+/* Wordmark: a solid blue square with a chassis-coloured inset cutout. */
+.mark {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex: none;
+    background: var(--blue);
+}
+
+.mark::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    background: var(--chrome);
+}
+
+.nameplate {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    /* The designation is a moulding, so it keeps its own case. */
+    text-transform: none;
+    color: var(--ink);
+}
+
+.nameplate .sub {
+    font-family: var(--mono);
+    font-weight: 400;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── SILK-SCREEN LABEL ────────────────────────────────────────────── */
+.lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    user-select: none;
+    white-space: nowrap;
+}
+
+.lbl.dim {
+    color: var(--ink-faint);
+}
+
+.lbl.on-blue {
+    color: var(--ink-on-blue);
+}
+
+/* Every number that can change keeps fixed-width digits so the panel does not
+ * twitch under it. */
+.num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+
+/* ── LED ──────────────────────────────────────────────────────────── */
+.led {
+    width: 9px;
+    height: 9px;
+    flex: none;
+    background: var(--ink-faint);
+    border: 1px solid var(--led-bezel);
+}
+
+.led.on {
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+}
+
+.led.blue {
+    background: var(--screen-blue);
+    box-shadow: 0 0 6px var(--screen-blue);
+}
+
+.led.rec {
+    background: var(--amber);
+    box-shadow: 0 0 6px var(--amber);
+    animation: blink 1.1s step-end infinite;
+}
+
+.led.blink {
+    animation: blink 0.9s step-end infinite;
+}
+
+@keyframes blink {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.12;
+    }
+}
+
+/* ── BUTTONS: hardware keys ───────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--u);
+    height: 26px;
+    padding: 0 calc(var(--u) * 1.5);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    /* Mechanical: a keycap does not ease. */
+    transition: none;
+    cursor: default;
+}
+
+/* Bevels are hairlines, not shadows. */
+.btn:not(:first-child) {
+    border-left-width: 1px;
+}
+
+.btn:hover {
+    background: var(--panel-3);
+    border-color: var(--blue-dim);
+}
+
+.btn:active {
+    transform: translateY(1px);
+    background: var(--panel);
+}
+
+.btn.primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: var(--ink-on-blue);
+}
+
+.btn.primary:hover {
+    background: var(--blue-bright);
+}
+
+.btn:disabled {
+    color: var(--ink-faint);
+    background: var(--panel);
+    border-color: var(--line);
+}
+
+.btn.tiny {
+    height: 20px;
+    padding: 0 var(--u);
+    font-size: 9px;
+}
+
+/* Function-strip keys read as part of the chrome, not as panel buttons. */
+.strip .btn {
+    height: 100%;
+    border: none;
+    border-right: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-dim);
+}
+
+.strip .btn:hover {
+    background: var(--blue);
+    color: var(--ink-on-blue);
+}
+
+.strip .btn.active {
+    color: var(--blue-bright);
+}
+
+/* ── KEYCAP GROUPS share an edge, like a row of moulded caps ───────── */
+.keygroup {
+    display: flex;
+    flex: none;
+}
+
+.keygroup .btn + .btn {
+    margin-left: -1px;
+}
+
+.keygroup .btn.on {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: var(--ink-on-blue);
+}
+
+/* ── BODY: scrollable instrument field, footer stays reachable ───── */
+.body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: calc(var(--u) * 2);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 2);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+}
+
+/* ── PANEL (a section of the instrument) ──────────────────────────── */
+.pnl {
+    flex: none;
+    background: var(--panel);
+    border: 1px solid var(--line);
+}
+
+.pnl-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--u);
+    padding: var(--u) calc(var(--u) * 1.5);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+}
+
+/* Section ordinal, ghosted the way a moulding is. */
+.pnl-head .idx {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--blue-deep);
+    -webkit-text-stroke: 0.5px var(--blue-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.chassis.t-light .pnl-head .idx {
+    color: var(--blue-bright);
+    -webkit-text-stroke: 0;
+}
+
+.pnl-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.pnl-head .spacer {
+    flex: 1 1 auto;
+}
+
+.pnl-body {
+    padding: calc(var(--u) * 1.5);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 1.5);
+}
+
+.hint {
+    font-size: 11px;
+    color: var(--ink-dim);
+}
+
+/* ── KEYCAP GRID: the two toggle lists ───────────────────────────── */
+.caps {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.cap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 var(--u);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    color: var(--ink-dim);
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    transition: none;
+    cursor: default;
+    overflow: hidden;
+}
+
+.cap:hover {
+    background: var(--panel-3);
+    border-color: var(--blue-dim);
+    color: var(--ink);
+}
+
+.cap:active {
+    transform: translateY(1px);
+}
+
+/* Lit = selected. The blue carries the selection; there is no second accent. */
+.cap.on {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: var(--ink-on-blue);
+}
+
+.cap.on .cap-led {
+    background: var(--screen-blue);
+    box-shadow: 0 0 5px var(--screen-blue);
+}
+
+.chassis.t-light .cap.on .cap-led {
+    background: #ffffff;
+    box-shadow: none;
+}
+
+.cap .cap-led {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    background: var(--line-2);
+    border: 1px solid var(--led-bezel);
+}
+
+.cap .cap-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Focus is always visible and always the same shape: a lit outline, not a
+ * glow. Keyboard users must be able to see where they are. */
+.cap:focus-visible,
+.btn:focus-visible,
+.sw:focus-visible,
+.seg-btn:focus-visible,
+.link:focus-visible {
+    outline: 2px solid var(--screen-blue);
+    outline-offset: -2px;
+}
+
+.chassis.t-light .cap:focus-visible,
+.chassis.t-light .btn:focus-visible,
+.chassis.t-light .sw:focus-visible,
+.chassis.t-light .seg-btn:focus-visible {
+    outline-color: var(--blue);
+}
+
+/* ── SEGMENTED SWITCH: replaces a dropdown ───────────────────────── */
+/* A <select> in a webview paints its own chrome, which no amount of CSS
+ * reconciles with a machined panel. N position options become N keycaps that
+ * share one edge. */
+.seg-row {
+    display: flex;
+    align-items: center;
+    gap: var(--u);
+    flex-wrap: wrap;
+}
+
+.segbar {
+    display: flex;
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.seg-btn {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 var(--u);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: lowercase;
+    color: var(--ink-dim);
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    transition: none;
+    cursor: default;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.seg-btn + .seg-btn {
+    margin-left: -1px;
+}
+
+.seg-btn:hover {
+    background: var(--panel-3);
+    color: var(--ink);
+    z-index: 1;
+}
+
+.seg-btn.on {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: var(--ink-on-blue);
+    z-index: 2;
+}
+
+.seg-btn .cap-led {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    background: var(--line-2);
+    border: 1px solid var(--led-bezel);
+}
+
+.seg-btn.on .cap-led {
+    background: var(--screen-blue);
+    box-shadow: 0 0 5px var(--screen-blue);
+}
+
+/* ── ROCKER SWITCH: the four "other settings" rows ───────────────── */
+.sw-row {
+    display: flex;
+    align-items: center;
+    gap: var(--u);
+}
+
+.sw-row .sw-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sw-label {
+    font-size: 12px;
+    color: var(--ink);
+}
+
+.sw {
+    position: relative;
+    flex: none;
+    width: 56px;
+    height: 22px;
+    padding: 0;
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    transition: none;
+    cursor: default;
+}
+
+/* The cap is a physical slider: it occupies one half of the track or the
+ * other, and never floats between. */
+.sw .knob {
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    left: 1px;
+    width: 26px;
+    background: var(--panel-3);
+    border: 1px solid var(--line-2);
+    /* The one sanctioned bevel: hairline top-light, hairline bottom-shade. */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.28);
+}
+
+.sw[aria-checked="true"] {
+    background: var(--blue-deep);
+    border-color: var(--blue);
+}
+
+.sw[aria-checked="true"] .knob {
+    left: 28px;
+    background: var(--blue);
+    border-color: var(--blue-bright);
+}
+
+.sw[aria-checked="true"] .knob::after {
+    content: "";
+    position: absolute;
+    inset: 5px 11px;
+    background: var(--screen-blue);
+    box-shadow: 0 0 5px var(--screen-blue);
+}
+
+/* An inert control says why. The preview pane belongs to Explorer, so on
+ * Finder the row stays visible, off, and labelled rather than vanishing. */
+.sw-row.inert {
+    color: var(--ink-faint);
+}
+
+.sw-row.inert .sw {
+    background: var(--panel);
+    border-color: var(--line);
+}
+
+.sw-row.inert .sw .knob {
+    background: var(--panel-2);
+    box-shadow: none;
+}
+
+.sw-row.inert .sw-label {
+    color: var(--ink-faint);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    height: 16px;
+    padding: 0 6px;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--amber);
+    border: 1px solid var(--crt-line);
+    background: var(--crt-bg);
+}

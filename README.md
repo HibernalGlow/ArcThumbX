@@ -138,7 +138,7 @@ Images inside those containers: `.jpg` `.jpeg` `.png` `.gif` `.bmp` `.tiff` `.ti
 ## Settings
 
 Open **ArcThumb Configuration** from the Start menu. On macOS the identical window is
-**ArcThumb.app** — the same Slint UI, reading and writing the extension's settings file.
+**ArcThumb.app** — the same panel, reading and writing the extension's settings file.
 
 <img src="./assets/screenshot.png" width="420" alt="The ArcThumb Configuration window: extension checkboxes, image format checkboxes, a sort-order dropdown, cover preference, preview pane, the two overlay switches and a Regenerate thumbnails button">
 
@@ -227,8 +227,9 @@ Dual-licensed under your choice of [MIT](./LICENSE-MIT) or [Apache 2.0](./LICENS
 
 Third-party components redistributed with `arcthumb-config` are listed in
 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md). The settings window uses
-[Slint](https://slint.dev/) under the Slint Royalty-Free License 2.0, attributed via the
-**About** button.
+[Dioxus](https://dioxuslabs.com) under the MIT license, and its interface type is a subset of
+IBM Plex Mono, Archivo, Press Start 2P and Noto Sans SC, all under the SIL Open Font License
+1.1 — see [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md).
 
 ## Credits
 
@@ -241,6 +242,6 @@ Implementation uses [windows-rs](https://github.com/microsoft/windows-rs) for CO
 [sevenz-rust](https://crates.io/crates/sevenz-rust) /
 [tar](https://github.com/alexcrichton/tar-rs) for archives,
 [jxl-oxide](https://crates.io/crates/jxl-oxide) and libavif/dav1d for modern codecs, and
-[Slint](https://slint.dev/) for the settings dialog.
+[Dioxus](https://dioxuslabs.com) for the settings panel, whose Cassette-Futurist surface is CSS.
 
 Bug reports and feature requests: [GitHub Issues](https://github.com/HibernalGlow/ArcThumbX/issues).

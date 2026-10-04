@@ -96,7 +96,7 @@ qlmanage -r cache
 
 ## Settings
 
-Open **ArcThumb.app** — the same Slint window as on Windows (`arcthumb-config`
+Open **ArcThumb.app** — the same panel as on Windows (`arcthumb-config`
 is the app's executable). Everything there writes one file:
 
 ```text

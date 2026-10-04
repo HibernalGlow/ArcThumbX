@@ -6,22 +6,36 @@ components are redistributed with ArcThumb (the `arcthumb.dll` shell
 extension, `arcthumb-config.exe`, and the macOS Quick Look extension)
 and require separate acknowledgement.
 
-## Slint
+## Dioxus
 
-[Slint](https://slint.dev/) is used as the GUI toolkit for
-`arcthumb-config.exe` under the **Slint Royalty-Free License 2.0**.
+[Dioxus](https://dioxuslabs.com) is the GUI toolkit for `arcthumb-config` —
+the settings panel on Windows and macOS — under the **MIT license**. The
+thumbnail extension itself does not link it: it sits behind the `config-gui`
+Cargo feature, so `arcthumb.dll` and the macOS Quick Look extension build
+without it.
 
-Full license text:
-https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md
+Dioxus's own tree (tao, wry, muda, winit, glutin/skia-free by way of the system
+web view) is MIT or Apache-2.0 as well; the panel embeds the system web view
+(WebView2 on Windows, WKWebView on macOS) rather than shipping one.
 
-Attribution: ArcThumb satisfies the Slint Royalty-Free License 2.0
-attribution requirement by displaying the `AboutSlint` widget inside
-the **About** dialog of `arcthumb-config.exe` (reachable via the
-**About** button in the settings window). The badge shows the Slint
-logo and links back to https://slint.dev/.
+## Fonts
 
-Slint's own source is not modified and is linked statically into the
-binary via the `slint` crate.
+The panel's interface faces are subsets of four open-licensed families, built by
+`tools/fonts/build.sh` and embedded in the binary as woff2:
+
+| Embedded family | Derived from | Licence |
+|---|---|---|
+| ArcThumb Mono | IBM Plex Mono 2.5.0 (IBM) | SIL Open Font License 1.1 |
+| ArcThumb Panel, ArcThumb Panel Expanded | Archivo (Google Fonts) | SIL Open Font License 1.1 |
+| ArcThumb Pixel | Press Start 2P (Codefaces) | SIL Open Font License 1.1 |
+| ArcThumb Sans SC | Noto Sans SC (Google) | SIL Open Font License 1.1 |
+
+Each subset is a modified version, and the OFL forbids a modified version from
+keeping a Reserved Font Name — which is why the families above are renamed. The
+upstream OFL text for each family ships next to the subsets in
+`assets/fonts/licences/`, and the unmodified originals are available from the
+sources above.
+
 
 ## Roboto (font)
 
