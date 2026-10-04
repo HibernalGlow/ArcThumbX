@@ -2,10 +2,10 @@
 //!
 //! ## GUI mode (default)
 //!
-//! Running with no arguments launches a Slint-based settings window
-//! where the user can enable/disable individual file extensions and
-//! tweak the thumbnail selection behaviour (sort order, cover-name
-//! preference).
+//! Running with no arguments launches the settings panel (Dioxus, over the
+//! system web view) where the user can enable individual file extensions,
+//! pick the thumbnail selection behaviour (sort order, cover-name preference),
+//! and choose the panel's own language and theme.
 //!
 //! ## CLI mode
 //!
@@ -41,35 +41,36 @@
 // so `cargo run` output is visible.
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
-// Every module below is the Windows settings dialog and its registry /
-// shell-DLL plumbing. They are gated out elsewhere so `cargo test
-// --all-targets` still works on the macOS side of the shared core, where
-// the Quick Look extension replaces this binary.
-#[cfg(windows)]
+// Every module below is either the Windows settings panel's plumbing (registry
+// keys, shell-DLL registration) or the panel itself. The GUI half is gated on
+// `config-gui` so the thumbnail backends — Explorer's `arcthumb.dll` and the
+// macOS Quick Look shim — keep building without Dioxus in the graph at all.
+#[cfg(feature = "config-gui")]
+mod app;
+#[cfg(all(windows, feature = "config-gui"))]
 mod apply;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "config-gui"))]
 mod cache;
 #[cfg(windows)]
 mod cli;
 #[cfg(windows)]
-mod dialogs;
-#[cfg(windows)]
 mod dll_path;
-#[cfg(windows)]
-mod extension_model;
+// Language and theme resolution stays unbuilt-for-none of that: the settings
+// file format validates the same two keys, and `--lang` exists so a Finder
+// launch with no `LANG` can still be steered.
 mod locale;
 #[cfg(windows)]
 mod message_box;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "config-gui"))]
 mod state;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "config-gui"))]
 mod ui;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "config-gui"))]
 mod update;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "config-gui"))]
 mod update_check;
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), feature = "config-gui"))]
 mod macos_ui;
 #[cfg(not(windows))]
 mod settings_store;
@@ -81,8 +82,8 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("--lang") => {
-            locale::set_language_override(args.get(1).map(String::as_str));
-            macos_ui::run().unwrap_or_else(|e| {
+            set_language_override(args.get(1).map(String::as_str));
+            gui().unwrap_or_else(|e| {
                 eprintln!("error: {e}");
                 std::process::exit(5);
             });
@@ -136,7 +137,7 @@ fn main() {
             With no arguments, opens the settings window."
         ),
         None => {
-            macos_ui::run().unwrap_or_else(|e| {
+            gui().unwrap_or_else(|e| {
                 eprintln!("error: {e}");
                 std::process::exit(5);
             });
@@ -184,16 +185,62 @@ fn main() {
             // "windows"`, so without this the user sees nothing —
             // not even a console line — and reports the binary as
             // broken. Reported in microsoft/winget-pkgs#364519.
-            if let Err(e) = ui::run_gui() {
-                let strings = locale::current();
-                message_box::error(
-                    strings.error_title,
-                    &format!("{}\n\n{e}", strings.error_gui_init),
-                );
+            if let Err(e) = gui() {
+                report_gui_failure(&e);
                 std::process::exit(5);
             }
         }
     }
+}
+
+/// `--lang` is only meaningful when there is a panel to speak to.
+#[cfg(all(not(windows), feature = "config-gui"))]
+fn set_language_override(lang: Option<&str>) {
+    locale::set_language_override(lang);
+}
+
+#[cfg(all(not(windows), not(feature = "config-gui")))]
+fn set_language_override(_lang: Option<&str>) {}
+
+/// Report a panel that could not start. A release build runs as a windows
+/// subsystem binary, so without this the user sees nothing at all and files the
+/// binary as broken (microsoft/winget-pkgs#364519). The localized wording needs
+/// the string tables, which only the GUI build carries.
+#[cfg(all(windows, feature = "config-gui"))]
+fn report_gui_failure(detail: &str) {
+    let strings = locale::Strings::resolve(
+        locale::preferred_locale(locale::Locale::from_tag("en")),
+        locale::Platform::Windows,
+    );
+    message_box::error(
+        strings.error_title,
+        &format!("{}\n\n{detail}", strings.error_gui_init),
+    );
+}
+
+#[cfg(all(windows, not(feature = "config-gui")))]
+fn report_gui_failure(detail: &str) {
+    message_box::error(
+        "ArcThumb",
+        &format!("This build has no settings panel (built without config-gui).\n\n{detail}"),
+    );
+}
+
+/// Open the settings panel. The two shapes below exist so a build with
+/// `--no-default-features` still links: that build has no Dioxus in its graph,
+/// and `cargo test --no-default-features` in CI compiles this binary.
+#[cfg(feature = "config-gui")]
+fn gui() -> Result<(), Box<dyn std::error::Error>> {
+    app::run()
+}
+
+#[cfg(not(feature = "config-gui"))]
+fn gui() -> Result<(), Box<dyn std::error::Error>> {
+    Err(
+        "this build of arcthumb-config has no settings panel (built without the \
+config-gui feature); the command-line options still work"
+            .into(),
+    )
 }
 
 /// Set the LogEnabled registry value and print feedback.

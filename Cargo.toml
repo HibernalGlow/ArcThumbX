@@ -35,13 +35,20 @@ default = ["wic", "config-gui"]
 # built-in; Windows 10 needs them installed from the Microsoft Store.
 # Enabled by default. Disable with: cargo build --no-default-features
 wic = []
-# The `arcthumb-config` settings dialog and its GUI toolkit. Only the
+# The `arcthumb-config` settings panel and its GUI toolkit. Only the
 # binary needs it, so the thumbnail backends — Explorer's and the macOS
 # one — build without it. Turn off with --no-default-features to check or
 # ship just the extension. The updater's HTTP client (`ureq`) is separate:
 # it lives in the Windows dependency table because the updater itself is
 # Windows-only.
-config-gui = ["dep:slint"]
+config-gui = [
+    "dep:dioxus",
+    "dep:dioxus-desktop",
+    "dep:futures-channel",
+    "dep:futures-util",
+    "dep:core-foundation",
+    "dep:core-foundation-sys",
+]
 
 [dependencies]
 zip = { version = "8", default-features = false, features = ["deflate"] }
@@ -76,24 +83,46 @@ image = { version = "0.25", default-features = false, features = [
 # icon size. Only pulled onto the hot path when the label overlay is
 # enabled; it is off by default.
 ab_glyph = "0.2"
-# Slint is the GUI toolkit for the `arcthumb-config` binary — the settings
-# window on Windows *and* on macOS, which is why it is not confined to the
-# Windows dependency table. Strings are passed from Rust to the Slint UI via
-# properties for now; the language is picked at startup from a per-platform
-# override and the OS locale. Switching to `@tr(...)` + gettext is a future
-# refactor tracked in TODO.md.
+# Dioxus is the GUI toolkit for the `arcthumb-config` binary — the settings
+# panel on Windows *and* on macOS, which is why it is not confined to the
+# Windows dependency table. It is the desktop renderer (tao + the system web
+# view), so the panel's Cassette-Futurism surface is CSS: hairlines, scanlines,
+# phosphor glow and engraved captions are what a stylesheet does well and what
+# an immediate-mode toolkit does not.
 #
-# We pin to the software renderer instead of the default femtovg
-# (OpenGL ES 2.0) so the config dialog still launches on hosts
-# without GPU acceleration — Windows Sandbox, fresh VMs, machines
-# with broken or missing GL drivers. arcthumb-config repaints rarely
-# enough that the CPU renderer is invisible to the user, and it
-# drops femtovg + glutin from the dependency tree.
-slint = { version = "1.15", optional = true, default-features = false, features = [
-    "backend-winit",
-    "renderer-software",
-    "compat-1-2",
+# The trade is stated in `app/mod.rs`: this needs the WebView2 Runtime on
+# Windows where a software-rendered toolkit needed nothing. The `config-gui`
+# feature keeps it out of the shell-extension DLL entirely.
+# Only the pieces the panel actually uses. `lib` and `desktop` are left off the
+# umbrella on purpose: `lib` drags in `asset` (manganis, a compile-time asset
+# scanner the panel does not use because its CSS and fonts arrive through
+# `Config::with_custom_head`) plus `document` and `logger`; `desktop` would pull
+# `dioxus-desktop` with *its* defaults on — devtools, a transparent-window path,
+# and a multithreaded tokio runtime.
+dioxus = { version = "0.7", optional = true, default-features = false, features = [
+    "macro",
+    "html",
+    "signals",
+    "hooks",
 ] }
+# The renderer is declared directly so those defaults can be switched off. The
+# panel launches through `dioxus_desktop::launch::launch`, which is also how it
+# passes a `Config` in without the umbrella's launch builder.
+# Two of dioxus-desktop's three defaults cannot be dropped, both measured rather
+# than assumed: `tokio_runtime` because `edits.rs` uses `tokio::sync::Notify`
+# without a cfg guard, and `devtools` because `app.rs` reaches for
+# `WebView::open_devtools` on a path the release profile compiles — with the
+# feature off, release fails with E0599. `transparent` is the one that really
+# goes away.
+dioxus-desktop = { version = "0.7", optional = true, default-features = false, features = [
+    "tokio_runtime",
+    "devtools",
+] }
+# The panel's background update check runs on its own thread and hands results
+# back through one of these; both are already in Dioxus's own tree, so this
+# costs no new crates, only a name in this table.
+futures-channel = { version = "0.3", optional = true }
+futures-util = { version = "0.3", optional = true }
 
 # ---------------------------------------------------------------------------
 # Platform-specific dependencies
@@ -128,6 +157,20 @@ winreg = "0.56"
 # referenced from the config binary; LTO strips it from the DLL.
 # Windows-only because the updater itself is Windows-only.
 ureq = { version = "3", default-features = false, features = ["rustls"] }
+
+# ---------------------------------------------------------------------------
+# CoreFoundation, for the macOS front end only
+# ---------------------------------------------------------------------------
+# A GUI launched from Finder inherits no `LANG`, so the shell's locale env vars
+# cannot be the whole answer on macOS. `AppleLocale` in the global preferences
+# domain is what `defaults read -g AppleLocale` prints, and CFPreferences is how
+# it is read without spawning a subprocess. Non-optional: the target table
+# already restricts it to the platform that has the framework, and the Quick
+# Look shim pulls this crate in with default features off, where the config GUI
+# code that reads it is gated out.
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = { version = "0.10", optional = true }
+core-foundation-sys = { version = "0.8", optional = true }
 
 # ---------------------------------------------------------------------------
 # Bundled AVIF / JXL decoders for platforms without WIC
@@ -179,12 +222,9 @@ windows = { version = "0.62", features = [
     "Win32_UI_Shell_PropertiesSystem",
     "Win32_UI_WindowsAndMessaging",
 ]}
-# Headless backend for Slint so the arcthumb-config GUI tests can
-# create real Slint components and exercise the property setters /
-# getters / callbacks without bringing up a window or requiring a
-# display server. Keep the version pinned to the same minor as the
-# `slint` runtime above.
-i-slint-backend-testing = "1.15"
+# No GUI-backend test crate: the panel's state layer is plain Rust, so its
+# round-trip tests run on every platform without a display and without a
+# toolkit object pinned to one thread.
 
 [build-dependencies]
 # Compile and embed an application manifest so arcthumb-config.exe
@@ -192,10 +232,9 @@ i-slint-backend-testing = "1.15"
 # resolve `GetWindowSubclass` at process start and the exe won't
 # launch. Applies to both the DLL and the exe; the DLL ignores it.
 embed-resource = "3"
-# Compiles `.slint` UI files into Rust code that the binary pulls in
-# via `slint::include_modules!()`. Keep the version in sync with the
-# `slint` runtime crate above.
-slint-build = "1.15"
+# No UI codegen step: the panel is RSX + CSS, compiled by `rustc` directly. The
+# fonts it embeds are generated ahead of time by tools/fonts/build.sh and
+# committed, so a build needs neither network nor Python.
 
 [profile.release]
 lto = true

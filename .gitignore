@@ -7,3 +7,6 @@
 # Finder metadata, and the scratch dir local README previews render into.
 .DS_Store
 .local/
+
+# Python bytecode from the font and contrast tooling.
+__pycache__/

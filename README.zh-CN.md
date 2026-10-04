@@ -127,7 +127,7 @@ Windows 为其中 12 种写 ShellEx 绑定（不绑定裸 `.tar`，但绑定 `.c
 ## 设置项
 
 Windows 从开始菜单打开 **ArcThumb Configuration**。macOS 上同一个窗口就是
-**ArcThumb.app**——同一套 Slint 界面，读写的是扩展的设置文件。
+**ArcThumb.app**——同一套面板，读写的是扩展的设置文件。
 
 <img src="./assets/screenshot.png" width="420" alt="ArcThumb 设置窗口：扩展名复选框、图像格式复选框、排序方式下拉框、封面偏好、预览窗格开关、两个叠加开关，以及「重新生成缩略图」按钮">
 
@@ -211,8 +211,9 @@ cargo test                   # 共享内核；再加 --no-default-features 检�
 
 随 `arcthumb-config` 一起分发的第三方组件列在
 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)。设置窗口使用
-[Slint](https://slint.dev/)，遵循 Slint Royalty-Free License 2.0，署名在窗口内的 **About**
-按钮里。
+[Dioxus](https://dioxuslabs.com)，MIT 许可；界面字体是 IBM Plex Mono、Archivo、Press Start 2P
+与 Noto Sans SC 的子集，均为 SIL Open Font License 1.1——见
+[THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)。
 
 ## 致谢
 
@@ -225,6 +226,6 @@ Windows 代码基础来自 [ArcThumb](https://github.com/citrussoda-com/ArcThumb
 [sevenz-rust](https://crates.io/crates/sevenz-rust) /
 [tar](https://github.com/alexcrichton/tar-rs) 做压缩包，
 [jxl-oxide](https://crates.io/crates/jxl-oxide) 与 libavif/dav1d 做新格式解码，
-[Slint](https://slint.dev/) 做设置对话框。
+[Dioxus](https://dioxuslabs.com) 做设置面板（卡带未来主义风格，外观由 CSS 描述）。
 
 Bug 反馈与功能请求：[GitHub Issues](https://github.com/HibernalGlow/ArcThumbX/issues)。

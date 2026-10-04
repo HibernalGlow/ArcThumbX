@@ -1,0 +1,353 @@
+/* The two screens of the panel and everything bolted on beside them: the LCD
+ * status strip, the footer key row, the theme rocker, the CRT overlay, and the
+ * motion and layout rules that govern them. Split from style.css for length,
+ * not because the split is conceptual — the tokens and the chassis live there,
+ * and this file is meaningless without them.
+ */
+
+/* ── LCD STATUS STRIP (a screen: never themed) ───────────────────── */
+.lcd {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--u);
+    height: var(--lcd-h);
+    padding: 0 calc(var(--u) * 1.5);
+    background: var(--lcd-bg);
+    border-top: 1px solid var(--lcd-line);
+    border-bottom: 1px solid var(--line-2);
+    color: var(--screen-blue);
+    text-shadow: 0 0 6px rgba(107, 182, 245, 0.55);
+    overflow: hidden;
+}
+
+.lcd .silk {
+    font-family: var(--pixel);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    color: var(--screen-blue);
+    flex: none;
+}
+
+.lcd .msg {
+    flex: 1 1 auto;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The cursor is how you tell the display is live rather than a picture. */
+.lcd .cursor {
+    flex: none;
+    width: 7px;
+    height: 12px;
+    background: var(--screen-blue);
+    animation: blink 1s step-end infinite;
+}
+
+.lcd.err {
+    color: var(--amber);
+    text-shadow: 0 0 6px rgba(255, 106, 0, 0.5);
+}
+
+.lcd.err .silk,
+.lcd.err .cursor {
+    color: var(--amber);
+    background: var(--amber);
+}
+
+.lcd.err .silk {
+    background: transparent;
+}
+
+.lcd .clock {
+    flex: none;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    color: var(--screen-blue);
+    opacity: 0.75;
+}
+
+/* ── FOOTER: the key row ─────────────────────────────────────────── */
+.footer {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--u);
+    padding: calc(var(--u) * 1.5) calc(var(--u) * 2);
+    background: var(--chrome);
+    border-top: 1px solid var(--line-2);
+}
+
+.footer .spacer {
+    flex: 1 1 auto;
+}
+
+/* ── THEME ROCKER (a panel switch, not a floating icon button) ───── */
+.tog {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tog-track {
+    position: relative;
+    width: 56px;
+    height: 20px;
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    transition: none;
+    cursor: default;
+    padding: 0;
+}
+
+.tog-knob {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 26px;
+    height: 16px;
+    background: var(--blue);
+    border: 1px solid var(--blue-bright);
+}
+
+.chassis.t-light .tog-knob {
+    left: auto;
+    right: 1px;
+}
+
+.tog-glyph {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    font-size: 10px;
+    color: var(--ink-dim);
+    pointer-events: none;
+}
+
+.tog-glyph.moon {
+    left: 1px;
+}
+
+.tog-glyph.sun {
+    right: 1px;
+}
+
+.chassis[data-theme="dark"] .tog-glyph.moon,
+.chassis.t-light .tog-glyph.sun {
+    color: var(--ink-on-blue);
+}
+
+/* ── CRT OVERLAY (a screen: never themed) ───────────────────────── */
+.scrim {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--u) * 3);
+    background: rgba(6, 6, 8, 0.72);
+    z-index: 20;
+}
+
+.crt {
+    width: min(520px, 100%);
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--crt-bg);
+    border: 1px solid var(--crt-line);
+    box-shadow: inset 0 0 0 1px #120d06;
+    color: var(--amber);
+    /* Phosphor scanlines, at the strength the contract prescribes. */
+    background-image: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 106, 0, 0.04) 0 1px,
+        transparent 1px 3px
+    );
+}
+
+.crt-head {
+    display: flex;
+    align-items: center;
+    gap: var(--u);
+    padding: var(--u) calc(var(--u) * 1.5);
+    border-bottom: 1px solid var(--crt-line);
+}
+
+.crt-title {
+    font-family: var(--pixel);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    color: var(--amber);
+    text-shadow: 0 0 6px rgba(255, 106, 0, 0.5);
+}
+
+.crt-head .spacer {
+    flex: 1 1 auto;
+}
+
+.crt-body {
+    padding: calc(var(--u) * 1.5);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 1.5);
+    overflow-y: auto;
+}
+
+.crt-text {
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    color: var(--amber);
+}
+
+/* Key/value rows, dotted-leadered like a service manual. */
+.kv {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.kv .k {
+    color: #9a9b95;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 9px;
+}
+
+.kv .rule {
+    flex: 1 1 auto;
+    border-bottom: 1px dotted var(--crt-line);
+    min-width: var(--u);
+}
+
+.kv .v {
+    color: var(--amber-hi);
+    font-variant-numeric: tabular-nums;
+}
+
+.crt-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: var(--u) calc(var(--u) * 1.5);
+    border-top: 1px solid var(--crt-line);
+}
+
+.crt-foot .spacer {
+    flex: 1 1 auto;
+}
+
+.crt .btn {
+    background: #120d06;
+    border-color: var(--crt-line);
+    color: var(--amber);
+}
+
+.crt .btn:hover {
+    background: #1c150a;
+    border-color: var(--amber);
+}
+
+.crt .btn.primary {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #120d06;
+}
+
+.crt .btn.primary:hover {
+    background: var(--amber-hi);
+}
+
+/* A checkbox inside the CRT keeps the panel's language: a bracket that fills. */
+.tick {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--amber);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: default;
+}
+
+.tick .box {
+    width: 12px;
+    height: 12px;
+    flex: none;
+    border: 1px solid var(--amber);
+    background: transparent;
+}
+
+.tick[aria-checked="true"] .box {
+    background: var(--amber);
+    box-shadow: 0 0 5px rgba(255, 106, 0, 0.6);
+}
+
+/* ── MOTION ───────────────────────────────────────────────────────── */
+/* A relay, not a gel: the panel snaps into existence one ratchet at a time,
+ * and nothing here is eased. */
+@keyframes reveal {
+    from {
+        clip-path: inset(0 100% 0 0);
+    }
+    to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+.reveal {
+    animation: reveal 0.35s steps(7, end) both;
+}
+
+.reveal-1 { animation-delay: 0.05s; }
+.reveal-2 { animation-delay: 0.1s; }
+.reveal-3 { animation-delay: 0.15s; }
+.reveal-4 { animation-delay: 0.2s; }
+.reveal-5 { animation-delay: 0.25s; }
+
+/* ── RESPONSIVE ───────────────────────────────────────────────────── */
+/* The window has a minimum, and below it the grids collapse rather than
+ * shrinking the legends into mush. */
+@media (max-width: 640px) {
+    .caps {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .caps {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .segbar {
+        flex-wrap: wrap;
+    }
+    .strip .seg.hide-narrow {
+        display: none;
+    }
+}
+
+/* ── REDUCED MOTION ───────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .reveal,
+    .led.rec,
+    .led.blink,
+    .lcd .cursor {
+        animation: none;
+    }
+    .reveal {
+        clip-path: none;
+    }
+    .lcd .cursor {
+        opacity: 1;
+    }
+}

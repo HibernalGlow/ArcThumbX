@@ -43,6 +43,11 @@ pub struct StoredSettings {
     pub overlay_border: bool,
     pub overlay_label: bool,
     pub log_enabled: bool,
+    /// GUI-only: the panel's language keycaps. `None` means "never chosen",
+    /// which is what lets the OS locale still decide on a fresh install.
+    pub language: Option<String>,
+    /// GUI-only: the panel's theme rocker.
+    pub theme: Option<String>,
 }
 
 impl Default for StoredSettings {
@@ -55,6 +60,8 @@ impl Default for StoredSettings {
             overlay_border: false,
             overlay_label: false,
             log_enabled: false,
+            language: None,
+            theme: None,
         }
     }
 }
@@ -100,6 +107,14 @@ impl StoredSettings {
         out.push_str(&format!("overlay_border = {}\n", flag(self.overlay_border)));
         out.push_str(&format!("overlay_label = {}\n", flag(self.overlay_label)));
         out.push_str(&format!("log_enabled = {}\n", flag(self.log_enabled)));
+        // Written only when the user chose one: an absent key is what lets the
+        // OS locale decide on a machine that has never opened the panel.
+        if let Some(tag) = &self.language {
+            out.push_str(&format!("language = {tag}\n"));
+        }
+        if let Some(tag) = &self.theme {
+            out.push_str(&format!("theme = {tag}\n"));
+        }
         out
     }
 
@@ -140,6 +155,18 @@ impl StoredSettings {
                 }
                 "overlay_border" => out.overlay_border = parse_flag(value),
                 "overlay_label" => out.overlay_label = parse_flag(value),
+                // The two GUI keys are validated here rather than stored raw, so
+                // a typo cannot pin the panel to a language it has no table for.
+                "language" => {
+                    if crate::locale::Locale::from_tag(value).is_some() {
+                        out.language = Some(value.to_string());
+                    }
+                }
+                "theme" => {
+                    if crate::locale::Theme::from_tag(value).is_some() {
+                        out.theme = Some(value.to_string());
+                    }
+                }
                 "log_enabled" => out.log_enabled = parse_flag(value),
                 _ => {}
             }
@@ -261,6 +288,8 @@ mod tests {
             overlay_border: true,
             overlay_label: false,
             log_enabled: true,
+            language: Some("zh".into()),
+            theme: Some("light".into()),
         };
         let text = original.to_text();
         assert_eq!(StoredSettings::parse(&text), original);

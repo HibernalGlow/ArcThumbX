@@ -77,28 +77,6 @@ pub fn image_ext_vec_to_mask(flags: &[bool]) -> u32 {
     )
 }
 
-/// Map a [`CoverMode`] to its position in the cover dropdown. The
-/// mapping is explicit so reordering the dropdown can't silently
-/// change which mode gets saved. Must stay in sync with the dropdown
-/// model order in `ui/main.slint`.
-pub fn cover_mode_to_index(mode: CoverMode) -> i32 {
-    match mode {
-        CoverMode::Prefer => 0,
-        CoverMode::Only => 1,
-        CoverMode::Ignore => 2,
-    }
-}
-
-/// Inverse of [`cover_mode_to_index`]. Any out-of-range index falls
-/// back to the default ([`CoverMode::Prefer`]).
-pub fn cover_mode_from_index(index: i32) -> CoverMode {
-    match index {
-        1 => CoverMode::Only,
-        2 => CoverMode::Ignore,
-        _ => CoverMode::Prefer,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

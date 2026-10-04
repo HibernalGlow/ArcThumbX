@@ -34,7 +34,7 @@ because `WTSAT_ARGB` and `kCGImageAlphaPremultipliedLast` both want it.
 Everything Windows-only stayed platform-specific and moved behind
 `cfg(windows)`: `com`, `bitmap`, `stream`, `preview`, `registry`,
 `elevation`, `wic`, plus the `arcthumb-config` binary and the `windows`,
-`winreg`, `slint`, `ureq` dependencies (now under
+`winreg`, `ureq` dependencies (now under
 `[target.'cfg(windows)'.dependencies]` — the `windows` crate's bindings do
 not compile for other targets at all, so this was mandatory, not
 stylistic).

@@ -157,8 +157,8 @@ host="$BUILD/$HOST_NAME.app"
 mkdir -p "$host/Contents/MacOS" "$host/Contents/Resources"
 subst "$ROOT/macos/host/Info.plist.in" > "$host/Contents/Info.plist"
 # The host executable is the shared `arcthumb-config` binary — the same
-# Slint window as on Windows, driving the macOS settings store. Built from
-# the workspace root, so the UI file and string tables are not duplicated.
+# settings panel as on Windows, driving the macOS settings store. Built from
+# the workspace root, so the view and the string tables are not duplicated.
 triple="${rust_triples[1]}"
 say "cargo build --bin arcthumb-config --target $triple $profile"
 ( cd "$ROOT" && "${CARGO[@]}" build ${=profile} --bin arcthumb-config --target "$triple" )

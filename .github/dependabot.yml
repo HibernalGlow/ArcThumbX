@@ -2,7 +2,7 @@
 #
 # Groups are tuned so version-locked crate families stay in sync:
 #   - windows + windows-core must move together (shared type system)
-#   - slint + slint-build + i-slint-backend-testing must share the
+#   - dioxus + futures-channel + futures-util must share the
 #     same minor (the build crate generates code the runtime depends on)
 #
 # Major version bumps for everything else come as individual PRs so
@@ -33,11 +33,11 @@ updates:
         patterns:
           - "windows"
           - "windows-core"
-      slint:
+      dioxus:
         patterns:
-          - "slint"
-          - "slint-build"
-          - "i-slint-*"
+          - "dioxus"
+          - "futures-channel"
+          - "futures-util"
       cargo-minor-and-patch:
         update-types:
           - "minor"

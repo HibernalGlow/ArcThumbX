@@ -18,7 +18,9 @@ other targets, so no flag juggling is needed when building the core elsewhere.
 
 - `wic` — AVIF and JXL decoding through the Windows Imaging Component instead of a bundled
   decoder. See [WIC_IMPLEMENTATION.md](./WIC_IMPLEMENTATION.md).
-- `config-gui` — the `arcthumb-config` settings dialog and its toolkit. The thumbnail
+- `config-gui` — the `arcthumb-config` settings panel (Dioxus) and its toolkit.
+  Its embedded font subsets are generated ahead of time by `tools/fonts/build.sh` and
+  committed; `build.rs` refuses to compile a label the committed subset cannot draw. The thumbnail
   backends (Explorer's and Quick Look's) build without it; use `--no-default-features` to
   check or ship just the extension.
 
