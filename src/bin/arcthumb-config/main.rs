@@ -186,7 +186,7 @@ fn main() {
             // not even a console line — and reports the binary as
             // broken. Reported in microsoft/winget-pkgs#364519.
             if let Err(e) = gui() {
-                report_gui_failure(&e);
+                report_gui_failure(&e.to_string());
                 std::process::exit(5);
             }
         }

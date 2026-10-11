@@ -4,7 +4,7 @@
 
 use arcthumb::elevation;
 use arcthumb::registry::{self, Scope};
-use arcthumb::settings::{CoverMode, SUPPORTED_IMAGE_EXTS, Settings};
+use arcthumb::settings::{SUPPORTED_IMAGE_EXTS, Settings};
 
 /// Number of extensions ArcThumb can manage. Derived directly from
 /// `registry::EXTENSIONS` so the two can't drift apart.
