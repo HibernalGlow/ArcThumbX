@@ -109,6 +109,10 @@ impl Panel {
         Self::mask_of(&self.image)
     }
 
+    /// The archive grid as a mask. Only the macOS backend persists it: on Windows
+    /// the `ShellEx` bindings drive archive types, and the stored mask deliberately
+    /// stays all-on (see `ui::save_panel`).
+    #[cfg(not(windows))]
     pub fn archive_mask(&self) -> u32 {
         Self::mask_of(&self.archive)
     }
@@ -271,8 +275,8 @@ mod tests {
     fn flags_zero_fill_a_short_grid() {
         let rows = grid(0b0000_0011);
         let flags: [bool; 12] = Panel::flags(&rows);
-        assert_eq!(flags[0], true);
-        assert_eq!(flags[1], true);
+        assert!(flags[0]);
+        assert!(flags[1]);
         assert_eq!(flags[2..], [false; 10], "missing rows read as off");
     }
 

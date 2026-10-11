@@ -69,17 +69,19 @@ pub fn image_ext_mask_to_vec(mask: u32) -> Vec<bool> {
         .collect()
 }
 
-/// Fold a GUI `Vec<bool>` back into the registry bitmask.
-pub fn image_ext_vec_to_mask(flags: &[bool]) -> u32 {
-    flags.iter().enumerate().take(32).fold(
-        0u32,
-        |acc, (i, &on)| if on { acc | (1u32 << i) } else { acc },
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The fold the panel used to do here by hand. Production now folds through
+    /// `Panel::mask_of` (one rule for both front ends); this stays only so the
+    /// `Vec<bool>` representation keeps its own round-trip coverage.
+    fn image_ext_vec_to_mask(flags: &[bool]) -> u32 {
+        flags.iter().enumerate().take(32).fold(
+            0u32,
+            |acc, (i, &on)| if on { acc | (1u32 << i) } else { acc },
+        )
+    }
     use arcthumb::settings::default_enabled_image_exts_mask;
 
     #[test]
