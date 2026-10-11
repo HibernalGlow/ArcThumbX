@@ -123,9 +123,6 @@ mod tests {
         }
         let settings = Settings::default();
         UiModel {
-            image_ext_enabled: crate::state::image_ext_mask_to_vec(
-                settings.enabled_image_exts_mask,
-            ),
             settings,
             scope: Scope::PerUser,
             ext_enabled,
@@ -160,20 +157,27 @@ mod tests {
     /// The grids are index-for-index parallel to the registry lists; if
     /// `EXTENSIONS` grew past the panel's row count the mask would silently
     /// lose a type.
-    /// The rows the panel shows must be exactly what the stored mask says, for
-    /// either of the two ways to build them. This is what lets the load path read
-    /// the mask directly instead of detouring through a `Vec<bool>`.
+    /// Bit `i` lights row `i`, and folding the grid back returns exactly the bits
+    /// that built it. This is the whole image-grid contract now that the model no
+    /// longer caches a `Vec<bool>` copy of the mask.
     #[test]
-    fn both_row_builders_agree_with_the_mask() {
-        for mask in [0u32, 0b101, u32::MAX, 1 << (SUPPORTED_IMAGE_EXTS.len() - 1)] {
-            let flags = crate::state::image_ext_mask_to_vec(mask);
-            let from_mask = Panel::from_masks(SUPPORTED_IMAGE_EXTS, mask);
-            let from_flags = Panel::from_flags(SUPPORTED_IMAGE_EXTS, &flags);
-            assert_eq!(from_mask, from_flags, "rows disagree for mask {mask:#014b}");
+    fn the_image_rows_fold_back_to_the_mask_that_built_them() {
+        let width = SUPPORTED_IMAGE_EXTS.len();
+        for mask in [0u32, 0b101, u32::MAX, 1 << (width - 1)] {
+            let rows = Panel::from_masks(SUPPORTED_IMAGE_EXTS, mask);
+            assert_eq!(rows.len(), width, "one row per supported format");
             assert_eq!(
-                Panel::mask_of(&from_mask),
-                mask & ((1 << SUPPORTED_IMAGE_EXTS.len()) - 1)
+                Panel::mask_of(&rows),
+                mask & ((1 << width) - 1),
+                "folding must keep only the low bits of the mask it loaded"
             );
+            for (i, row) in rows.iter().enumerate() {
+                assert_eq!(
+                    row.on,
+                    (mask & (1u32 << i)) != 0,
+                    "row {i} drifted from bit {i}"
+                );
+            }
         }
     }
 
@@ -188,7 +192,6 @@ mod tests {
                 ..Settings::default()
             };
             let model = UiModel {
-                image_ext_enabled: crate::state::image_ext_mask_to_vec(mask),
                 settings,
                 scope: Scope::PerUser,
                 ext_enabled: [false; EXT_COUNT],

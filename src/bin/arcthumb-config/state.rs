@@ -4,7 +4,7 @@
 
 use arcthumb::elevation;
 use arcthumb::registry::{self, Scope};
-use arcthumb::settings::{SUPPORTED_IMAGE_EXTS, Settings};
+use arcthumb::settings::Settings;
 
 /// Number of extensions ArcThumb can manage. Derived directly from
 /// `registry::EXTENSIONS` so the two can't drift apart.
@@ -26,12 +26,6 @@ pub struct UiModel {
     /// Parallel to `registry::EXTENSIONS`. `true` = this extension's
     /// ShellEx key is currently present in the registry.
     pub ext_enabled: [bool; EXT_COUNT],
-    /// Parallel to `settings::SUPPORTED_IMAGE_EXTS`. `true` = this
-    /// image format is eligible as a thumbnail source inside
-    /// archives. Mirrors `settings.enabled_image_exts_mask` — the
-    /// GUI edits this `Vec`, `collect_from_ui` folds it back into
-    /// the bitmask on Apply.
-    pub image_ext_enabled: Vec<bool>,
     /// `true` iff the preview-handler CLSID is currently registered
     /// in the active scope. When the user toggles this, ApplyChanges
     /// (un)registers the CLSID and binds/unbinds *all* extensions in
@@ -49,40 +43,38 @@ impl UiModel {
         let ext_enabled: [bool; EXT_COUNT] = std::array::from_fn(|i| {
             registry::is_extension_registered(scope, registry::EXTENSIONS[i])
         });
-        let image_ext_enabled = image_ext_mask_to_vec(settings.enabled_image_exts_mask);
         let preview_enabled = registry::is_preview_enabled(scope);
         Self {
             settings,
             scope,
             ext_enabled,
-            image_ext_enabled,
             preview_enabled,
         }
     }
-}
-
-/// Expand a bitmask over `SUPPORTED_IMAGE_EXTS` to a `Vec<bool>` of
-/// the same length, parallel to that slice.
-pub fn image_ext_mask_to_vec(mask: u32) -> Vec<bool> {
-    (0..SUPPORTED_IMAGE_EXTS.len())
-        .map(|i| (mask & (1u32 << i)) != 0)
-        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The fold the panel used to do here by hand. Production now folds through
-    /// `Panel::mask_of` (one rule for both front ends); this stays only so the
-    /// `Vec<bool>` representation keeps its own round-trip coverage.
+    /// The two directions of the `Vec<bool>` representation the Windows model used
+    /// to cache. Neither is production code any more: the panel builds its rows
+    /// straight from `settings.enabled_image_exts_mask` and folds them with
+    /// `Panel::mask_of`, so one bit rule serves both front ends. These helpers stay
+    /// only so that dropped representation keeps its round-trip coverage.
     fn image_ext_vec_to_mask(flags: &[bool]) -> u32 {
         flags.iter().enumerate().take(32).fold(
             0u32,
             |acc, (i, &on)| if on { acc | (1u32 << i) } else { acc },
         )
     }
-    use arcthumb::settings::default_enabled_image_exts_mask;
+    use arcthumb::settings::{SUPPORTED_IMAGE_EXTS, default_enabled_image_exts_mask};
+
+    fn image_ext_mask_to_vec(mask: u32) -> Vec<bool> {
+        (0..SUPPORTED_IMAGE_EXTS.len())
+            .map(|i| (mask & (1u32 << i)) != 0)
+            .collect()
+    }
 
     #[test]
     fn mask_to_vec_length_matches_supported_exts() {

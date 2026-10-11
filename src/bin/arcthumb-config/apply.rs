@@ -261,9 +261,6 @@ mod tests {
             ..Settings::default()
         };
         UiModel {
-            image_ext_enabled: crate::state::image_ext_mask_to_vec(
-                settings.enabled_image_exts_mask,
-            ),
             settings,
             scope: Scope::PerUser,
             ext_enabled: ext,
