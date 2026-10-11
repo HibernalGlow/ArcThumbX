@@ -55,7 +55,7 @@ impl UiModel {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use arcthumb::settings::{SUPPORTED_IMAGE_EXTS, default_enabled_image_exts_mask};
 
     /// The two directions of the `Vec<bool>` representation the Windows model used
     /// to cache. Neither is production code any more: the panel builds its rows
@@ -68,7 +68,6 @@ mod tests {
             |acc, (i, &on)| if on { acc | (1u32 << i) } else { acc },
         )
     }
-    use arcthumb::settings::{SUPPORTED_IMAGE_EXTS, default_enabled_image_exts_mask};
 
     fn image_ext_mask_to_vec(mask: u32) -> Vec<bool> {
         (0..SUPPORTED_IMAGE_EXTS.len())
